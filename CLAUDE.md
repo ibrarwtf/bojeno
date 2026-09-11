@@ -12,7 +12,7 @@ npm run dev:restart  # kill stray electron/node processes left over from a previ
 npm run dev:clean    # same kill, without restarting
 ```
 
-A pre-commit hook (`simple-git-hooks`, auto-installed by `npm install` via the `prepare` script) runs `npm run check` on every commit. If it fails, the commit is blocked — fix it and commit again, don't bypass with `--no-verify` unless the user explicitly asks for that.
+A pre-commit hook (`simple-git-hooks`, auto-installed by `npm install` via the `prepare` script) runs `npm run check` on every commit. A commit-msg hook enforces the `<type>(<scope>): #<issue> <summary>` format from `CONTRIBUTING.md` on the subject line. If either fails, the commit is blocked — fix it and commit again, don't bypass with `--no-verify`/`SKIP_SIMPLE_GIT_HOOKS=1` unless the user explicitly asks for that.
 
 ## Verify against the real running app, not just green checks
 
