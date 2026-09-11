@@ -246,3 +246,71 @@ Finalized: **Bojeno** (wordplay on "one job"). Used from here on for repo, docs,
 ## 10. Repo setup
 
 New repo, new pseudonym GitHub account, zero personal data from commit 1. Do not fork/branch from the `afterq` repo — its history (real name in commits, existing scripts) must never share a git log with the public project. This brief itself is the seed doc for that new repo's first Claude Code session.
+
+## 11. Planning status and next steps
+
+*This is the living, implementation-facing register. Keep it updated as a decision is made, work begins, completes, or is deliberately deferred. Do not create a competing next-steps document: this brief is the source of truth.*
+
+### Confirmed product decisions (2026-09-11)
+
+- **Internal API first:** product actions are exposed as typed internal IPC/domain commands, not a localhost HTTP server. The same commands will support the renderer now and may later be surfaced through MCP, a CLI, or an external API without moving platform logic into the UI.
+- **Thin clients, modular actions:** browser automation, UI buttons, future command chaining, schedules, and LLM tooling must call the same domain commands. Existing monolithic scripts are reference material only; port their behavior as small composable operations, never as one giant wrapper.
+- **Deterministic first:** build deterministic search/filter/workflow commands before introducing LLM orchestration. LLM-assisted filtering/enrichment remains a later seam, not a prerequisite for useful workflows.
+- **Initial discovery proof:** LinkedIn plus one public ATS adapter (choose Lever or Ashby after inspecting the existing scripts in `C:\\Users\\i\\afterq\\tools`). Add platforms one at a time after a complete vertical slice works.
+- **Data posture:** retain source/external IDs, URLs, normalized essentials, and raw capture where useful; do not overinvest in complex cross-source merging/unmerge tooling during v1. Good-enough storage and tracking now, refinement later.
+- **Visual direction:** classic Windows 98 visual language with modern usability—not pixel-perfect emulation. Prefer a maintained, compatible library or icon set when it genuinely saves time; do not rebuild commodity UI/icon work for its own sake.
+- **First user journey:** LinkedIn: define filter → scan → review jobs → save/blacklist companies → outreach/apply → track outcome.
+
+### A. Development safety and verification
+
+15. **Restore the documented verification commands.** Add `npm run check` (typecheck, lint, test) and `npm run devcheck` as described in `AGENTS.md`. **Why:** every later feature needs one reliable pre-commit check and one supported way to verify behavior in the real Electron renderer; the current documentation and `package.json` disagree.
+
+16. **Verify the existing vertical slice in the running application before extending it.** Confirm login-state checks, visible LinkedIn/Naukri view switching, count fetches, recent LinkedIn application capture, SQLite writes, and run-log rows against the real app. **Why:** green static checks do not prove selectors, navigation timing, or visible layout work against live platform pages.
+
+17. **Make the working-tree/runtime hygiene explicit.** Keep `.dev/` and migration-backup outputs untracked; check `git status --porcelain` before each implementation commit. **Why:** local CDP/runtime files and database backups must not leak into source control.
+
+### B. Internal command API and workflow foundations
+
+18. **Define a small internal command vocabulary.** Start with typed commands such as `jobs:discover`, `jobs:list`, `jobs:get`, `companies:setDisposition`, `filters:save`, `filters:run`, and `runs:cancel`; retain existing low-level platform actions behind these commands. **Why:** UI, schedules, chained tooling, and future MCP integrations gain one stable interface while selector/platform details remain isolated.
+
+19. **Introduce a deterministic discovery request/result contract.** A request should carry criteria (keywords, location, remote, source selection, date/experience filters where supported); a result should carry normalized job essentials, source identity/URL, capture timestamp, and outcome/diagnostics. **Why:** every adapter can implement the same useful workflow without pretending they offer identical filters or DOM structures.
+
+20. **Keep orchestration deliberately thin for now.** Use a deterministic dispatcher that selects requested adapters, applies existing locks/login/mode/logging conventions, and stores results. Defer multi-step LLM planning, autonomous retries, and tool selection. **Why:** this gives a clean seam now without delaying the first useful search flow.
+
+21. **Inspect the legacy scripts before porting any discovery behavior.** Inventory `C:\\Users\\i\\afterq\\tools` by platform, inputs, outputs, dependencies, selectors, and side effects; extract only the smallest reusable operations. **Why:** the scripts contain proven behavior but their monolithic structure is not the architecture for Bojeno.
+
+22. **Choose the first ATS adapter from evidence.** Compare Lever and Ashby scripts/endpoints for a stable public discovery path, simple pagination, useful company/job IDs, and low implementation risk; then implement only the winner. **Why:** one API-kind adapter alongside LinkedIn proves the session/API split early without committing to a broad ATS surface.
+
+### C. Storage and tracking
+
+23. **Add a minimal discovery storage migration.** Add canonical job records plus source identity/URL and essential company information, retaining raw capture only when it helps debugging or future normalization. Do not implement sophisticated fuzzy merging or unmerge UI. **Why:** scans must be reviewable and trackable across runs, while v1 avoids a data-management project.
+
+24. **Define conservative duplicate behavior.** At minimum, upsert the same `(source, external_id)` on repeat scans and preserve first/last-seen timestamps. Cross-platform matching may be a best-effort later enhancement. **Why:** repeated scheduled/manual scans remain useful without producing a noisy tracker.
+
+25. **Add company dispositions before company enrichment.** Support simple user-controlled states such as neutral, saved, and blacklisted, keyed to the captured company name/source identity. **Why:** the first journey needs practical filtering/control before size/sector enrichment or sophisticated canonical-company management.
+
+26. **Build a queryable jobs read model before a rich tracker.** Support list/review filters for source, date seen, company disposition, and job status; keep the current applied-count chart as a separate metric view. **Why:** users need to review newly discovered jobs immediately, not wait for the full applications CRM.
+
+### D. UI system and product shell
+
+27. **Evaluate a compatible Windows-98-style UI foundation before writing primitives.** Test maintained options for React/Electron compatibility, accessibility, bundle health, theming flexibility, and license; adopt one only if it fits the app’s two-pane architecture. **Why:** a library may accelerate the visual baseline, but a poorly fitting novelty theme would create more work than a tiny local layer.
+
+28. **If no library fits, create only a minimal local component layer.** Limit it to panels/windows, buttons, inputs/selects, tabs, status chips, data grid, progress, dialog, toast, and icon wrapper. **Why:** consistency and reusable behavior matter; a full custom design system does not.
+
+29. **Use existing iconography where possible.** Choose a cohesive, license-compatible icon source with simple line/pixel-friendly icons, then adapt sizing/color to the classic theme. **Why:** recognizable navigation and action cues should not become bespoke illustration work.
+
+30. **Replace the fixed prototype dashboard with a product shell.** Plan a compact header, left navigation, central workspace, visible docked browser pane with platform tabs, and activity/status region. **Why:** it reflects the intended command-center workflow while preserving transparent visible automation.
+
+31. **Build the first UI screen around the LinkedIn discovery journey, not a generic dashboard.** It should let a user define/run a search, see progress/log outcome, review captured jobs, and set company disposition. **Why:** the UI earns its complexity only when it completes an actual user task.
+
+### E. Incremental capability rollout
+
+32. **Complete LinkedIn discovery as the reference vertical slice.** Implement deterministic filter → visible scan → normalized/store results → review list → saved/blacklisted company behavior → structured logs. **Why:** this establishes the reusable end-to-end pattern for every subsequent adapter.
+
+33. **Complete one Lever-or-Ashby discovery slice using the same command and storage contracts.** It needs no browser view/login gate but must participate in the same job list and logs. **Why:** it validates that ATS adapters are first-class rather than a side pipeline.
+
+34. **Add outreach/apply as separately gated commands after discovery/review is stable.** These commands must reuse action-time mode checks, login checks where relevant, locks, rate budgets, visible execution, and logs. **Why:** applying is higher risk than discovery and should build on a proven command boundary.
+
+35. **Add saved filters and schedules only after the manual discovery command is dependable.** Scheduled runs must remain visible/logged and wait for kill switch and circuit-breaker work already specified in this brief. **Why:** an unreliable manual workflow becomes a harmful unattended workflow when scheduled.
+
+36. **Add LLM assistance only after deterministic commands, data shapes, and audit logs are stable.** Connect it as an optional caller of the same command/query layer, with clear provenance and no ability to bypass safety gates. **Why:** the model becomes a useful planner/assistant rather than the place where core product logic hides.
