@@ -26,6 +26,14 @@ export interface FetchAppliedCountResult {
   fetchedAt?: string
 }
 
+/** One row for the live log panel. */
+export interface RunLogRow {
+  timestamp: string
+  script: string
+  outcome: RunOutcome
+  entityId: string | null
+}
+
 /** One point in the applied-count-over-time chart — always the 'applied' metric. */
 export interface AppliedCountPoint {
   platform: Platform

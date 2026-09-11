@@ -10,6 +10,7 @@ import type {
   JobDetails,
   LoginStatus,
   Platform,
+  RunLogRow,
   ScannedJobCard
 } from '../shared/types'
 
@@ -48,7 +49,8 @@ const bojenoApi = {
   scanJobs: (params: ScanJobsArgs): Promise<ScannedJobCard[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
   applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
-    ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun)
+    ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
+  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs)
 }
 
 if (process.contextIsolated) {
