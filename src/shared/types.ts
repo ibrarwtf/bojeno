@@ -25,3 +25,10 @@ export interface FetchAppliedCountResult {
   metrics?: ApplicationMetrics
   fetchedAt?: string
 }
+
+/** One point in the applied-count-over-time chart — always the 'applied' metric. */
+export interface AppliedCountPoint {
+  platform: Platform
+  count: number
+  fetchedAt: string
+}

@@ -6,6 +6,7 @@ import { getDb } from './db'
 import { registerLinkedinHandlers } from './ipc/handlers/linkedin'
 import { registerNaukriHandlers } from './ipc/handlers/naukri'
 import { registerPlatformHandlers } from './ipc/handlers/platform'
+import { registerTrackerHandlers } from './ipc/handlers/tracker'
 
 // Must run before app.whenReady() — Chromium only honors this switch pre-init.
 setupRemoteDebugging()
@@ -22,6 +23,7 @@ app.whenReady().then(() => {
   registerLinkedinHandlers()
   registerNaukriHandlers()
   registerPlatformHandlers()
+  registerTrackerHandlers()
 
   createWindow()
 

@@ -82,3 +82,45 @@ body {
   color: #cf222e;
   font-weight: 600;
 }
+
+.tracker {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ev-c-gray-2);
+}
+
+.tracker h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.tracker-chart {
+  width: 100%;
+  height: auto;
+}
+
+.tracker-axis {
+  stroke: var(--ev-c-gray-2);
+  stroke-width: 1;
+}
+
+.tracker-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ev-c-text-2);
+}
+
+.tracker-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tracker-legend-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
