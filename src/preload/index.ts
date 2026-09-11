@@ -1,17 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import {
-  IpcChannels,
-  type ActivateTabArgs,
-  type AtsApplyArgs,
-  type AtsDiscoverArgs,
-  type ScanJobsArgs
-} from '../shared/ipc-contract'
+import { IpcChannels, type ActivateTabArgs, type ScanJobsArgs } from '../shared/ipc-contract'
 import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
-  DiscoverResult,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
@@ -28,11 +21,10 @@ const bojenoApi = {
     return ipcRenderer.invoke(channel)
   },
   fetchAppliedCount: (platform: Platform): Promise<FetchAppliedCountResult> => {
-    const channel =
-      platform === 'linkedin'
-        ? IpcChannels.linkedinFetchAppliedCount
-        : IpcChannels.naukriFetchAppliedCount
-    return ipcRenderer.invoke(channel)
+    if (platform !== 'linkedin') {
+      return Promise.reject(new Error(`fetchAppliedCount is not available for ${platform}`))
+    }
+    return ipcRenderer.invoke(IpcChannels.linkedinFetchAppliedCount)
   },
   fetchRecentAppliedJobs: (platform: Platform): Promise<FetchRecentAppliedJobsResult> => {
     if (platform !== 'linkedin') {
@@ -57,11 +49,7 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
   applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
-  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
-  discover: (args: AtsDiscoverArgs): Promise<DiscoverResult> =>
-    ipcRenderer.invoke(IpcChannels.atsDiscover, args),
-  atsApply: (args: AtsApplyArgs): Promise<ApplyResult> =>
-    ipcRenderer.invoke(IpcChannels.atsApply, args)
+  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs)
 }
 
 if (process.contextIsolated) {

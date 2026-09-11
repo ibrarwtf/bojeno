@@ -5,7 +5,6 @@ import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
 import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
-import actionBudgetSql from './migrations/20260911T2500_action_budget.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
 const metricMigration: Migration = {
@@ -19,10 +18,6 @@ const applyAttemptsMigration: Migration = {
 const companyBlacklistMigration: Migration = {
   id: '20260911T2400_company_blacklist.sql',
   sql: companyBlacklistSql
-}
-const actionBudgetMigration: Migration = {
-  id: '20260911T2500_action_budget.sql',
-  sql: actionBudgetSql
 }
 
 function tableNames(db: DatabaseSync): string[] {
@@ -115,12 +110,5 @@ describe('runMigrations', () => {
     expect(rows.map((row) => row.company_name)).toEqual(
       expect.arrayContaining(['Hire Feed', 'Quik Hire Staffing'])
     )
-  })
-
-  it('creates action_budget', () => {
-    const db = new DatabaseSync(':memory:')
-    runMigrations(db, [initMigration, actionBudgetMigration], () => undefined)
-
-    expect(tableNames(db)).toContain('action_budget')
   })
 })

@@ -2,7 +2,7 @@ import { BrowserWindow, WebContentsView, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { instanceId } from './instance'
-import type { ActiveTabUrl, Platform, Source } from '../shared/types'
+import type { ActiveTabUrl, Platform } from '../shared/types'
 import { IpcChannels } from '../shared/ipc-contract'
 
 const LEFT_PANE_WIDTH = 260
@@ -21,8 +21,8 @@ const platformLoginUrl: Record<Platform, string> = {
 }
 
 let mainWindow: BrowserWindow | undefined
-let views: Record<Source, WebContentsView> | undefined
-let activePlatform: Source = 'linkedin'
+let views: Record<Platform, WebContentsView> | undefined
+let activePlatform: Platform = 'linkedin'
 
 function layoutViews(): void {
   if (!mainWindow || !views) return
@@ -34,9 +34,9 @@ function layoutViews(): void {
     width: Math.max(width - LEFT_PANE_WIDTH, 0),
     height: Math.max(height - top - LOG_PANEL_HEIGHT, 0)
   }
-  for (const source of Object.keys(views) as Source[]) {
-    views[source].setBounds(bounds)
-    views[source].setVisible(source === activePlatform)
+  for (const platform of Object.keys(views) as Platform[]) {
+    views[platform].setBounds(bounds)
+    views[platform].setVisible(platform === activePlatform)
   }
 }
 
@@ -47,19 +47,19 @@ function notifyActiveTabUrl(): void {
   mainWindow.webContents.send(IpcChannels.platformActiveTabUrlChanged, payload)
 }
 
-function createPlatformView(source: Source): WebContentsView {
+function createPlatformView(platform: Platform): WebContentsView {
   const view = new WebContentsView({
     webPreferences: {
-      partition: `persist:${source}-${instanceId}`,
+      partition: `persist:${platform}-${instanceId}`,
       sandbox: false
     }
   })
   view.setBackgroundColor('#00000000')
   view.webContents.on('did-navigate', () => {
-    if (source === activePlatform) notifyActiveTabUrl()
+    if (platform === activePlatform) notifyActiveTabUrl()
   })
   view.webContents.on('did-navigate-in-page', () => {
-    if (source === activePlatform) notifyActiveTabUrl()
+    if (platform === activePlatform) notifyActiveTabUrl()
   })
   // Loaded to about:blank rather than the platform's real home page - see
   // ensurePlatformViewLoaded. Loading both platforms' home pages
@@ -118,15 +118,10 @@ export function createWindow(): BrowserWindow {
 
   views = {
     linkedin: createPlatformView('linkedin'),
-    naukri: createPlatformView('naukri'),
-    // No login/home page - stays about:blank until an apply action navigates
-    // it via showLeverTab. Not selectable from the sidebar (see Sidebar.tsx);
-    // it's shown automatically when a Lever apply is in flight.
-    lever: createPlatformView('lever')
+    naukri: createPlatformView('naukri')
   }
   mainWindow.contentView.addChildView(views.linkedin)
   mainWindow.contentView.addChildView(views.naukri)
-  mainWindow.contentView.addChildView(views.lever)
   layoutViews()
 
   return mainWindow
@@ -140,20 +135,6 @@ export function activateTab(platform: Platform, navigateToLogin?: boolean): void
   } else {
     ensurePlatformViewLoaded(platform)
   }
-  notifyActiveTabUrl()
-}
-
-/**
- * Switches the docked pane to the Lever tab and navigates it to `url` -
- * called by adapters/lever/apply.ts right before it looks up the page over
- * CDP, so the apply flow is visible in the same pane LinkedIn/Naukri use
- * instead of popping a separate window.
- */
-export function showLeverTab(url: string): void {
-  if (!views) return
-  activePlatform = 'lever'
-  views.lever.webContents.loadURL(url)
-  layoutViews()
   notifyActiveTabUrl()
 }
 
