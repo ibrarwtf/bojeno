@@ -1,0 +1,67 @@
+import { describe, it, expect } from 'vitest'
+import { DatabaseSync } from 'node:sqlite'
+import { runMigrations, type Migration } from './migrate'
+import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
+
+const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
+
+function tableNames(db: DatabaseSync): string[] {
+  return (
+    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
+      name: string
+    }[]
+  ).map((row) => row.name)
+}
+
+describe('runMigrations', () => {
+  it('applies a pending migration to a fresh fixture DB', () => {
+    const db = new DatabaseSync(':memory:')
+    const applied = runMigrations(db, [initMigration], () => undefined)
+
+    expect(applied).toEqual([initMigration.id])
+    expect(tableNames(db)).toEqual(
+      expect.arrayContaining(['run_logs', 'applied_counts', 'applied_migrations'])
+    )
+  })
+
+  it('records the migration in applied_migrations', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration], () => undefined)
+
+    const rows = db.prepare('SELECT id FROM applied_migrations').all() as { id: string }[]
+    expect(rows.map((row) => row.id)).toEqual([initMigration.id])
+  })
+
+  it('does not re-apply an already-applied migration', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration], () => undefined)
+
+    const secondRun = runMigrations(db, [initMigration], () => undefined)
+    expect(secondRun).toEqual([])
+  })
+
+  it('calls backup once per newly-applied migration, before it runs', () => {
+    const db = new DatabaseSync(':memory:')
+    let backupCount = 0
+    let tableExistedAtBackupTime = true
+
+    runMigrations(db, [initMigration], () => {
+      backupCount++
+      tableExistedAtBackupTime = tableNames(db).includes('run_logs')
+    })
+
+    expect(backupCount).toBe(1)
+    expect(tableExistedAtBackupTime).toBe(false)
+  })
+
+  it('applies multiple pending migrations in id order', () => {
+    const db = new DatabaseSync(':memory:')
+    const second: Migration = {
+      id: '20260911T2000_add_note.sql',
+      sql: 'ALTER TABLE run_logs ADD COLUMN note TEXT'
+    }
+
+    const applied = runMigrations(db, [second, initMigration], () => undefined)
+    expect(applied).toEqual([initMigration.id, second.id])
+  })
+})

@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { setupRemoteDebugging } from './cdp'
 import { createWindow } from './window'
+import { getDb } from './db'
 import { registerLinkedinHandlers } from './ipc/handlers/linkedin'
 import { registerNaukriHandlers } from './ipc/handlers/naukri'
 import { registerPlatformHandlers } from './ipc/handlers/platform'
@@ -15,6 +16,8 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  getDb()
 
   registerLinkedinHandlers()
   registerNaukriHandlers()
