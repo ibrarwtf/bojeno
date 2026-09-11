@@ -20,6 +20,7 @@ export const IpcChannels = {
   linkedinApplyToJob: 'linkedin:applyToJob',
   naukriCheckLogin: 'naukri:checkLogin',
   platformActivateTab: 'platform:activateTab',
+  platformShowHome: 'platform:showHome',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
   trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
   trackerGetRunLogs: 'tracker:getRunLogs',
@@ -58,6 +59,10 @@ export interface IpcContract {
   }
   [IpcChannels.platformActivateTab]: {
     args: [ActivateTabArgs]
+    return: void
+  }
+  [IpcChannels.platformShowHome]: {
+    args: []
     return: void
   }
   [IpcChannels.platformGetActiveTabUrl]: {

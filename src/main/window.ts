@@ -23,6 +23,9 @@ const platformLoginUrl: Record<Platform, string> = {
 let mainWindow: BrowserWindow | undefined
 let views: Record<Platform, WebContentsView> | undefined
 let activePlatform: Platform = 'linkedin'
+// Home is the default landing screen - true until the user selects a platform, and
+// again whenever they navigate back to Home. No platform view should be visible then.
+let homeActive = true
 
 function layoutViews(): void {
   if (!mainWindow || !views) return
@@ -36,7 +39,7 @@ function layoutViews(): void {
   }
   for (const platform of Object.keys(views) as Platform[]) {
     views[platform].setBounds(bounds)
-    views[platform].setVisible(platform === activePlatform)
+    views[platform].setVisible(!homeActive && platform === activePlatform)
   }
 }
 
@@ -131,8 +134,14 @@ export function createWindow(): BrowserWindow {
   return mainWindow
 }
 
+export function showHome(): void {
+  homeActive = true
+  layoutViews()
+}
+
 export function activateTab(platform: Platform, navigateToLogin?: boolean): void {
   activePlatform = platform
+  homeActive = false
   layoutViews()
   if (navigateToLogin && views) {
     views[platform].webContents.loadURL(platformLoginUrl[platform])

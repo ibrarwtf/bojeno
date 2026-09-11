@@ -1,24 +1,34 @@
 import { useState } from 'react'
-import type { Platform } from '../../../../shared/types'
-import { Sidebar } from '../Sidebar/Sidebar'
+import { Sidebar, type ActiveView } from '../Sidebar/Sidebar'
 import { StatusBar } from '../StatusBar/StatusBar'
 import { UrlBar } from '../UrlBar/UrlBar'
 import { LogPanel } from '../LogPanel/LogPanel'
+import { Home } from '../Home/Home'
 
 export function Dashboard(): React.JSX.Element {
-  const [activePlatform, setActivePlatform] = useState<Platform>('linkedin')
+  const [activeView, setActiveView] = useState<ActiveView>('home')
 
-  function selectPlatform(platform: Platform): void {
-    setActivePlatform(platform)
-    void window.bojeno.activateTab({ platform })
+  function selectView(view: ActiveView): void {
+    setActiveView(view)
+    if (view === 'home') {
+      void window.bojeno.showHome()
+    } else {
+      void window.bojeno.activateTab({ platform: view })
+    }
   }
 
   return (
     <>
-      <Sidebar activePlatform={activePlatform} onSelectPlatform={selectPlatform} />
-      <StatusBar platform={activePlatform} />
-      <UrlBar />
-      <LogPanel />
+      <Sidebar activeView={activeView} onSelectView={selectView} />
+      {activeView === 'home' ? (
+        <Home />
+      ) : (
+        <>
+          <StatusBar platform={activeView} />
+          <UrlBar />
+          <LogPanel />
+        </>
+      )}
     </>
   )
 }
