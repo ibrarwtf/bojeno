@@ -16,39 +16,34 @@ A local-first, open-source desktop app that automates the tedious parts of job h
 - Open source. No public plugin marketplace in v1 (adapter interface designed now, review/vetting gate built later).
 - Secondary goal, explicitly real: daily build-in-public content (pseudonym) doubles as portfolio/marketing regardless of whether the tool itself goes viral. Success metric to anchor on: working tool + real usage + the user's own job outcome — not virality.
 
-## 3. Architecture (final)
+## 3. Architecture (v0.1 scope)
+
+*Cut down 2026-09-12 after four sessions of adding infrastructure (ledger, ATS adapter, capability registry) faster than any single user journey got proven end-to-end. Everything below is what v0.1 actually needs. Anything from earlier planning that isn't here was deliberately cut or deferred — see §13.*
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Electron (TypeScript, strict mode, from commit 1)            │
 │                                                                 │
 │  ┌──────────────── LEFT ────────────┐ ┌────── RIGHT ────────┐│
-│  │  Profile     (user data,         │ │  WebContentsView tabs:│
-│  │  answer-bank, import adapters)   │ │   - LinkedIn (session) │
-│  │  Dashboard   (feature cards,     │ │     persist:linkedin-  ││
-│  │  mode switch: read-only/         │ │     <instanceId>       │
-│  │  dry-run/live; kill switch)      │ │   - Naukri (session)   │
-│  │  Job Tracker (aggregated view,   │ │     persist:naukri-    │
-│  │  SQL joins across all sources,   │ │     <instanceId>       │
-│  │  run_mode/is_synthetic filter)   │ │  Real, visible,        │
-│  │  Settings    (telemetry opt-in,  │ │  user's own logged-in  │
-│  │  off by default — crash reports  │ │  session — nothing      │
-│  │  opt-in too; LLM key)            │ │  hidden                 │
+│  │  Dashboard   (mode switch:       │ │  WebContentsView tabs:│
+│  │  read-only/dry-run/live)         │ │   - LinkedIn (session) │
+│  │  Job Tracker (applied counts,    │ │     persist:linkedin-  ││
+│  │  run logs)                       │ │     <instanceId>       │
+│  │                                  │ │   - Naukri (session)   │
+│  │                                  │ │     persist:naukri-    │
+│  │                                  │ │     <instanceId>       │
+│  │                                  │ │  Real, visible,        │
+│  │                                  │ │  user's own logged-in  │
+│  │                                  │ │  session — nothing      │
+│  │                                  │ │  hidden                 │
 │  └───────────────┬───────────────────┘ └──────────┬───────────┘│
 │                   │  IPC — typed contract (shared TS types)     │
 │                   ▼                                 │            │
 │  ┌─────────────────── Main process ──────────────────┐         │
-│  │  Adapters (capability-based, kind: session | api)   │        │
-│  │  — session adapters (LinkedIn, Naukri): view + CDP  │        │
-│  │    + login gate. API adapters (Greenhouse, Lever,   │        │
-│  │    Ashby, SmartRecruiters, Workday): fetch only,     │        │
-│  │    no view, no login gate.                           │        │
-│  │  Mode gate + kill switch — checked at action-time     │       │
-│  │  Rate-limit ledger — rolling-window action budget,    │       │
-│  │  keyed per account/platform/action_type               │       │
-│  │  Scheduler — user-defined cron entries; circuit       │       │
-│  │  breaker auto-disables a schedule after N consecutive │       │
-│  │  auth_required / selector failures                    │       │
+│  │  Adapters (LinkedIn, Naukri) — plain interface,     │        │
+│  │  no capability/kind abstraction. Both have a view,  │        │
+│  │  a login gate, and CDP.                              │       │
+│  │  Mode gate — checked at action-time                  │       │
 │  │  Playwright via connectOverCDP (loopback, random      │       │
 │  │  debug port; page target selected by URL) → attaches  │       │
 │  │  to the already-open WebContentsView                  │       │
@@ -61,7 +56,7 @@ A local-first, open-source desktop app that automates the tedious parts of job h
 └─────────────────────────────────────────────────────────────┘
 
 Dev loop:  electron-vite (Vite HMR for renderer, auto-restart main/preload)
-Packaging: electron-builder — deferred until after script #1 is wrapped
+Packaging: electron-builder — deferred until v0.1 works end-to-end
 ```
 
 ## 3a. Project structure & first-feature conventions
@@ -72,33 +67,22 @@ bojeno/
     main/
       index.ts
       window.ts
-      modes.ts                 # read-only / dry-run / live gate + kill switch
+      modes.ts                 # read-only / dry-run / live gate
       ipc/
         channels.ts            # channel name constants: "<domain>:<action>"
         handlers/
           linkedin.ts
           naukri.ts
-          ats.ts
       adapters/
-        types.ts                # Capability, Adapter interface (session | api)
-        registry.ts              # id -> Adapter lookup, both kinds in one registry
+        types.ts                # plain Adapter interface
+        registry.ts              # id -> Adapter lookup
         linkedin/
           adapter.ts
           selectors.ts           # all LinkedIn selectors, centralized
         naukri/
           adapter.ts
           selectors.ts
-        ats/
-          greenhouse.ts
-          lever.ts
-          ashby.ts
-          smartrecruiters.ts
-          workday.ts
-      ledger/
-        actionBudget.ts          # rolling-window rate-limit ledger
-      scheduler/
-        index.ts                 # user-defined cron entries, circuit breaker
-      operations/                # cross-cutting, non-adapter-specific (e.g. enrich-company.ts)
+      engine/                    # applyToJob.ts etc — mode gate + login gate + logging, per adapter action
       db/
         index.ts                 # node:sqlite connection
         migrations/
@@ -111,35 +95,24 @@ bojeno/
         components/
           Dashboard/
           Tracker/
-          Profile/
-          Settings/
     shared/
       ipc-contract.ts            # payload types, imported by main + preload + renderer
-      types.ts                   # domain types: Job, Company, Application, RunLog...
+      types.ts                   # domain types: Platform, RunLog, ApplyResult...
   migrations backups/            # timestamped .sqlite copies, gitignored
   CLAUDE.md
   CONTRIBUTING.md
 ```
 
-**Adapter interface** — capability-based, not a single flat `PlatformAdapter`. ATS providers (Greenhouse, Lever, Ashby, SmartRecruiters, Workday) have no login, no session, no view — their rate limits are HTTP request budgets, not action budgets. A single interface has to carry that split explicitly, because the engine branches on it: whether to spin a `WebContentsView`, whether the login gate applies at all, which ledger dimension to charge.
+**Adapter interface** — a plain interface, not capability-based. Both v0.1 adapters (LinkedIn, Naukri) are the same shape: a view, a login gate, CDP. There's no second adapter kind yet to justify a `kind`/`capabilities` split — that abstraction was built once (for a since-removed ATS adapter) and cut because two adapters of one shape don't need a registry abstraction to distinguish them. Re-add a capability/kind split only when a second structurally-different adapter (no login, no view — e.g. an ATS fetch-only source) actually gets built, not before.
 
 ```ts
-type Capability =
-  | 'checkLogin' | 'appliedCount' | 'discover' | 'apply'
-  | 'findCompany' | 'findInsiders' | 'findHiringPosts'
-  | 'connect' | 'askReferral';
-
 interface Adapter {
-  id: string;                    // 'linkedin' | 'naukri' | 'greenhouse' | 'bayt'
-  kind: 'session' | 'api';       // session → view + CDP + login gate; api → fetch only
-  capabilities: Set<Capability>;
-  checkLogin?(): Promise<LoginStatus>;   // present iff kind === 'session'
-  discover?(p: DiscoverParams): Promise<JobSourceRow[]>;
-  appliedCount?(): Promise<number>;
+  id: string;                    // 'linkedin' | 'naukri'
+  checkLogin(): Promise<LoginStatus>;
+  appliedCount?(): Promise<ApplicationMetrics>;
+  applyToJob?(jobId: string, dryRun?: boolean): Promise<ApplyResult>;
 }
 ```
-
-Both kinds write into the same `job_sources` table — this is what makes ATS genuinely first-class rather than a bolted-on pipeline. No inheritance, no `this`-binding — same functional pattern already used for `enrich-company.ts` and the import adapters, so there's one adapter shape across the whole codebase.
 
 **Electron/CDP specifics:**
 - Use `WebContentsView`, not `BrowserView` — deprecated since Electron 30, now a compatibility shim.
@@ -154,29 +127,26 @@ Both kinds write into the same `job_sources` table — this is what makes ATS ge
 - IPC channels named `<domain>:<action>` (e.g. `linkedin:checkLogin`, `linkedin:getAppliedCount`) from the first channel defined onward.
 - Failure logging detail (what gets captured beyond the baseline fields) is decided per feature, not a fixed universal rule — but the baseline fields (§3b, `run_logs`) are non-negotiable from feature 1.
 
-## 3b. Database schema (v2)
+## 3b. Database schema (v0.1, as actually built)
 
-All tables defined in the first migration. Timestamp-prefixed migration filenames (`20260911T1430_init.sql`) plus an `applied_migrations` tracking table — not sequential integers, since parallel worktree branches would collide on the same next number.
+Timestamp-prefixed migration filenames plus an `applied_migrations` tracking table — not sequential integers, since parallel worktree branches would collide on the same next number.
 
-- **`profile`** — user data, resume fields, answer-bank source. Each field carries `source: manual | linkedin_import | naukri_import`.
-- **`companies`** (canonical) + **`company_identifiers`**`(company_id, source, external_id, raw_name)` — maps each source's own company reference back to one canonical row.
-- **`jobs`** (canonical) + **`job_sources`**`(job_id, source, external_id, url, first_seen, raw_json)` — one canonical job can have multiple source postings (e.g. the same role on LinkedIn and via Greenhouse). Dedupe key: normalized title + company + location. An unmerge path (splitting a wrongly-merged `job_sources` row back into its own canonical job) is a deferred manual operation — seam only, not built in v1.
-- **`applications`**, **`contacts`** — as before.
-- **`run_logs`** — baseline: `timestamp, script, selector, outcome, duration, trigger_type (manual|auto|scheduled), triggered_by`. Extended: `run_id, step_index, entity_type, entity_id, error_detail (JSON), run_mode`. `outcome` is an explicit enum: `success | failed | auth_required | rate_limited | awaiting_input | skipped`.
-- **`action_budget`**`(account_id, platform, action_type, window_start, count)` — rolling-window rate-limit ledger, persisted, keyed per account (two accounts exist — see §4, dual-account policy).
-- **`saved_filters`** — as before, `match_mode: 'exact' | 'llm_assisted'` per criterion.
-- **`answer_bank`** — table defined now, unimplemented. Same deferred-seam pattern as `match_mode`.
-- **`settings`** — as before.
-- **`run_mode` / `is_synthetic`** columns on `jobs`, `applications`, `contacts`, `run_logs` — tracker queries filter these by default with a visible toggle, so dry-run test data never silently pollutes the real tracker view.
+- **`run_logs`** — `timestamp, script, outcome, duration, trigger_type, entity_type, entity_id, error_detail (JSON), run_mode`. `outcome` is an explicit enum: `success | failed | auth_required | rate_limited | awaiting_input | skipped`.
+- **`applied_counts`** — one row per fetch, `platform, metric, count, fetched_at` — the tracker's applied-count-over-time chart.
+- **`applied_jobs`** — LinkedIn-scraped recent-applications rows (title, company, location, applied timestamp).
+- **`apply_attempts`** — one row per `applyToJob` attempt: `platform, external_job_id, outcome, reason, header, dry_run, attempted_at`.
+- **`company_blacklist`** — company names the apply flow refuses to attempt, checked before every apply.
+
+Broader schema ideas from earlier planning (canonical `jobs`/`companies` merge tables, `profile`/answer-bank as its own table, `saved_filters`, `action_budget`) are deferred — see §13. Add a table when a feature actually needs it, not ahead of time.
 
 ## 4. Key decisions and why
 
 | Area | Decision | Why |
 |---|---|---|
 | Browser engine | Chromium via Electron `WebContentsView`, not patched Firefox | Electron can't embed Firefox — would require a separate process/window, breaking the two-column layout. LinkedIn bans are driven mainly by server-side rate/pattern enforcement, not client fingerprinting, for single-account personal use. Existing scripts already have pacing solved. |
-| Anti-detection | Preload script patches `navigator.webdriver` / CDP tells. No debugger-detach-between-actions — CDP has to stay live for Playwright regardless, so detaching adds operational cost without meaningfully reducing risk | Risk management moves to the rate-limit ledger instead, which better matches what actually causes bans (pattern/volume), rather than trying to win a fingerprinting arms race. |
+| Anti-detection | Preload script patches `navigator.webdriver` / CDP tells. No debugger-detach-between-actions — CDP has to stay live for Playwright regardless, so detaching adds operational cost without meaningfully reducing risk | Risk management for pattern/volume-driven bans is a v0.1-deferred concern (see §13) rather than trying to win a fingerprinting arms race now. |
 | Automation layer | Playwright via `connectOverCDP()` against the `WebContentsView`, not hand-rolled CDP calls. Loopback, random debug port; select the target page by URL since the app's own renderer is also visible over CDP | Reuses existing scripts' proven logic (shadow-DOM handling, retries, pacing) with a one-line change (how `page` is obtained) instead of reimplementing Playwright's engine. |
-| Adapter interface | Capability-based `Adapter` (`kind: 'session' \| 'api'`, `capabilities: Set<Capability>`), not a flat single-shape interface | ATS providers have no login/session/view and HTTP-budget rate limits, structurally different from LinkedIn/Naukri. The engine branches on `kind` for view/login-gate/ledger-dimension — a single flat interface would misrepresent that split. Both kinds write into the same `job_sources` table, keeping ATS first-class rather than a separate pipeline. |
+| Adapter interface | Plain `Adapter` interface, no `kind`/`capabilities` split (cut 2026-09-12 — see §13) | Both v0.1 adapters (LinkedIn, Naukri) are the same shape: view + login gate + CDP. A capability-based split was built for a since-removed ATS adapter before it had a second real use — re-add it only when a structurally different adapter is actually being built. |
 | Per-platform isolation | One `WebContentsView` per platform, each its own `persist:<platform>-<instanceId>` partition, swapped into a tab strip | Gives tab UX and login isolation for free. Instance-scoped naming prevents parallel worktrees from sharing sessions. |
 | Login gating | Simple login-check utility acts as a gate before any session-kind adapter action runs (API adapters have no login gate) | Prevents silent failures against a logged-out session; produces an explicit `auth_required` outcome in `run_logs` and a blocking dashboard banner instead of a buried failure. |
 | Local storage | SQLite via Node's built-in `node:sqlite` (`DatabaseSync`), not `better-sqlite3`, not per-tool JSON/JSONL, not `sql.js`. **Changed from the original plan** (see note below) | Job tracker aggregates across platforms — a relational join, not a per-file scan. A sync API is what this workload wants either way. `better-sqlite3` was the original choice for its sync API and (assumed) reliable prebuilt bindings, but on the actual dev machine no prebuilt binary existed for this Electron version and no C++ compiler was installed to build it from source — installing one was rejected in favor of `node:sqlite`, which ships inside Electron's own bundled Node (confirmed present: Electron 39.8.10 bundles Node 22.22.1) and needs zero native compilation, on this machine or any future one. Tradeoff: `node:sqlite` is marked experimental in Node and its API could still change. Export-to-JSON is a flat dump command, built last, not a sync feature. |
@@ -185,10 +155,8 @@ All tables defined in the first migration. Timestamp-prefixed migration filename
 | IPC | One shared typed contract file, imported by both main and renderer | Prevents payload-shape drift between processes — a boring fix for a disproportionately expensive bug class. |
 | Telemetry | Crash reports **and** opt-in usage stats both OFF by default — crash reporting is opt-in too, not a special case. Whatever would be sent is composed into the same local `run_logs` the user already sees, then sent — one code path, not two | Makes "nothing hidden" true by construction, not by policy — a payload can't diverge from what the user already saw. |
 | Logging | Structured rows in `run_logs` (see §3b for full field list, including explicit `outcome` enum and `run_mode`), not console output | Primary debugging tool since the owner doesn't read diffs — verification is behavioral, via logs and tracker UI. Built into the shared helper so every adapter action gets it for free. |
-| Modes | Global read-only / dry-run / live switch plus a kill switch (abort current run + disable all schedules), checked at action-time, no restart required | `dry-run` is the primary iteration tool. `read-only` skips all writes for pure inspection. The kill switch is a required safety rail before the scheduler ships — one unattended action-type gone wrong needs a single stop, not a hunt through settings. |
-| Rate limiting | Shared `action_budget` ledger in the main process, consulted by the same helper that does mode-gating and logging. Lands with the first wrapped feature (`connect.mjs`), not added later | Rate limiting was previously per-script and implicit ("pacing already solved" in the old scripts) — making it a shared, queryable ledger from day one avoids retrofitting it across every adapter once several already exist without it. |
-| Scheduled automation | Cron-defined, user-visible schedules permitted; a scheduled run still drives the visible browser pane and logs identically to a manual run. Circuit breaker auto-disables a schedule after N consecutive `auth_required`/selector failures. Requires the kill switch and circuit breaker to exist before the scheduler ships | Reconciles "no hidden output" with unattended runs — what's rejected is hiding a run's activity, not the absence of a click. The circuit breaker prevents an unattended schedule from hammering a broken selector or a logged-out session indefinitely. |
-| Dual-account policy | An existing account from a prior shared project — already slated for deletion — is repurposed as the test account. The real personal account stays read-only for a new feature until it has N clean live runs against the test account (N to be set per feature, not fixed globally) | Gives a real live-mode test target without risking the account actually used for the job search, at zero extra cost since the test account was going to be deleted anyway. |
+| Modes | Global read-only / dry-run / live switch, checked at action-time, no restart required. Kill switch deferred (see §13) since there's no scheduler yet for it to guard | `dry-run` is the primary iteration tool. `read-only` skips all writes for pure inspection. |
+| Rate limiting | Deferred past v0.1 — see §13 | No scheduled/unattended runs exist yet to make an implicit per-action pace risky; add a ledger when the scheduler actually ships, not before. |
 | Diff-review scope | Explicit, bounded review checklist: `db/migrations/*.sql`, `shared/ipc-contract.ts`, `shared/types.ts`, `*/selectors.ts`, `main/modes.ts`, the rate-limit ledger. Everything else unreviewed by design | Turns "minimal code review" into a concrete rule instead of an ambiguous intention — these are the files where a silent error would corrupt data, break the process boundary, or bypass a safety gate; everything else is either UI (behaviorally verified) or automation logic (verified via dry-run). |
 | Migrations | Timestamp-prefixed SQL files + `applied_migrations` table (not sequential integers); timestamped file-copy backup before each migration | Sequential filenames collide across parallel worktree branches creating migrations independently. Backup makes a bad migration recoverable instead of a lost job search. |
 | Dev loop | `electron-vite` (not hand-assembled Vite + nodemon + electron-reload) | Purpose-built for Electron: HMR for renderer, fast rebuild/auto-restart for main/preload, one config. Current de facto standard, actively maintained. |
@@ -199,24 +167,20 @@ All tables defined in the first migration. Timestamp-prefixed migration filename
 | Automated tests | Three narrow categories, not skipped: migrations run forward on a fixture DB, `saved_filters` produce the expected result set, IPC contract round-trips. Sourced from each issue's own acceptance criteria, not a separate test-writing effort | Targets exactly the deterministic-logic gap that matters given the owner doesn't read diffs (filters, migrations, IPC), without attempting to unit-test the inherently flaky browser-automation layer — that stays verified via dry-run. |
 | Git workflow | Worktrees per branch/feature instead of branch-switching, each running its own live Electron instance | No lost running state when switching work. Requires instance-scoped `userData` path, SQLite file, dev port, and view partition names (all keyed off the same `instanceId`) so parallel instances don't share sessions or DB. Only one worktree may run `live` mode against real accounts at a time. |
 
-## 5. Feature inventory carried over from existing scripts
+## 5. Feature inventory — v0.1 status
 
-**LinkedIn (6, `kind: session`):** `connect.mjs`, `find-company-id(s)`, `find-insiders(-batch)`, `find-hiring-posts.mjs`, `ask-referral.mjs`, `find-easy-apply-jobs.mjs` + `apply-easy-apply.mjs`
-**Naukri (2, `kind: session`):** `find-naukri-jobs.mjs`, `apply-naukri.mjs`
-**ATS / discovery (5, `kind: api`, first-class platform group, not a bolted-on pipeline):** `fetch_jobs.mjs` + providers — Ashby, Greenhouse, Lever, SmartRecruiters, Workday. Each an `Adapter` with `capabilities: {'discover'}` initially. Eligibility logic ported from Python to **TypeScript**, not JS, for v1.
+**LinkedIn (built):** login check, applied-count fetch, recent-applied-jobs scrape, job-detail capture, Easy Apply job-card scan, Easy Apply modal fill (dry-run/live).
+**Naukri (built):** login check, applied-count fetch.
+**Not yet built, in scope for v0.1:** LinkedIn discovery scan → review → save/blacklist company → apply, wired together as one reviewable journey in the dashboard UI (currently these exist as separate IPC actions, not a connected flow).
 
-**First script to wrap end-to-end: `connect.mjs`** — most mature, lowest blast radius, standing comfort running it live. The rate-limit ledger and diff-review scope both land in this same PR since they touch the same shared helper.
+ATS discovery (Lever et al.) was built and then **removed** 2026-09-12 as part of the complexity cut — see §13. Everything else from the original scripts inventory (connect, find-insiders, find-hiring-posts, ask-referral) is deferred past v0.1 — see §13.
 
-## 6. Build order
+## 6. Build order (v0.1)
 
-0. Dev loop first: `electron-vite` hot reload working before any feature work.
-1. Bare Electron app, one `WebContentsView` on linkedin.com, Playwright `connectOverCDP` attached (loopback/random port, target selected by URL) — prove DOM read + programmatic click works while window stays visibly open. The one real technical unknown.
-2. Wrap `connect.mjs` end to end (dashboard trigger → visible run → structured log → mode gate → login gate → rate-limit ledger check). This becomes the template every other script copies.
-3. Repeat for remaining 5 LinkedIn scripts, then 2 Naukri scripts — mostly wiring.
-4. ATS/discovery adapters (`kind: api`) — no view, no login gate, simpler wiring than session adapters.
-5. Local activity-log UI, job tracker aggregation view (with `run_mode`/`is_synthetic` filter), settings.
-6. Kill switch + circuit breaker, then the scheduler — in that order, since the scheduler is gated on both existing first.
-7. `electron-builder` packaging (not before this point) — dogfood solo, then small invite list before any public post.
+0. ~~Dev loop~~ / ~~bare CDP proof~~ / ~~LinkedIn+Naukri session adapters~~ — done.
+1. **Current focus:** connect LinkedIn discovery scan → review list → save/blacklist company → apply into one working dashboard journey, verified in the running app end to end.
+2. Job tracker view with the applied-count chart and run-log panel — already scaffolded, keep it in sync with the journey above.
+3. Only after that journey is solid and dogfooded: revisit anything in §13 (a second adapter, scheduling, rate limiting) based on real need, not the original speculative order.
 
 ## 7. Git / issue strategy
 
@@ -231,13 +195,7 @@ All tables defined in the first migration. Timestamp-prefixed migration filename
 
 ## 8. Non-goals / explicitly deferred
 
-- Public plugin/extension marketplace (adapter interface built now, review/vetting gate later — community adapters get DOM access to a real logged-in session, needs vetting before opening up).
-- Automation whose output is hidden from the user — rejected outright, not deferred. (Scheduled/cron runs are in scope — see §4 — but still visible and logged like any other run.)
-- Answer-bank editing UI (table defined now, unimplemented — resolved into the profile-store design; hand-editing acceptable for v1).
-- Confirm-before-send friction on early live actions — considered, skipped for v1 in favor of the mode/login/ledger gates already in place.
-- `selectors:healthcheck` read-only diagnostic command — considered, deferred, not blocking anything.
-- Additional discover-only platforms (Indeed, Gulf Naukri, Bayt, GulfTalent) — considered, deferred past v1; the capability-based adapter model supports adding them later without a redesign.
-- LLM-assisted filtering/enrichment (seams designed, implementation deferred).
+Automation whose output is hidden from the user is rejected outright, not deferred — everything else non-essential to the v0.1 journey is deferred; see §13 for the full list (ATS/discovery adapters, scheduler, rate-limit ledger, LLM assistance, plugin marketplace, answer-bank UI, dual-account policy, Windows-98 UI kit).
 
 ## 9. Naming
 
@@ -249,71 +207,11 @@ New repo, new pseudonym GitHub account, zero personal data from commit 1. Do not
 
 ## 11. Planning status and next steps
 
-*This is the living, implementation-facing register. Keep it updated as a decision is made, work begins, completes, or is deliberately deferred. Do not create a competing next-steps document: this brief is the source of truth.*
+*This is the living, implementation-facing register. Keep it updated as a decision is made, work begins, completes, or is deliberately deferred. Do not create a competing next-steps document: this brief is the source of truth. Rewritten 2026-09-12 — the previous version of this section (36 numbered planning items) had accumulated faster than actual features shipped; most of it is now superseded by either completed work or the §13 deferred list. Don't refill this section with speculative multi-step plans again — keep it to what's actually in progress.*
 
-### Confirmed product decisions (2026-09-11)
+**Done:** dev loop, LinkedIn/Naukri session adapters (login, applied count, recent-applied scrape, job-detail capture, Easy Apply scan + fill), SQLite schema for run logs/applied counts/applied jobs/apply attempts/company blacklist, dashboard shell with status bar + browser pane + log panel, `npm run check`/`devcheck`.
 
-- **Internal API first:** product actions are exposed as typed internal IPC/domain commands, not a localhost HTTP server. The same commands will support the renderer now and may later be surfaced through MCP, a CLI, or an external API without moving platform logic into the UI.
-- **Thin clients, modular actions:** browser automation, UI buttons, future command chaining, schedules, and LLM tooling must call the same domain commands. Existing monolithic scripts are reference material only; port their behavior as small composable operations, never as one giant wrapper.
-- **Deterministic first:** build deterministic search/filter/workflow commands before introducing LLM orchestration. LLM-assisted filtering/enrichment remains a later seam, not a prerequisite for useful workflows.
-- **Initial discovery proof:** LinkedIn plus one public ATS adapter (choose Lever or Ashby after inspecting the existing scripts in `C:\\Users\\i\\afterq\\tools`). Add platforms one at a time after a complete vertical slice works.
-- **Data posture:** retain source/external IDs, URLs, normalized essentials, and raw capture where useful; do not overinvest in complex cross-source merging/unmerge tooling during v1. Good-enough storage and tracking now, refinement later.
-- **Visual direction:** classic Windows 98 visual language with modern usability—not pixel-perfect emulation. Prefer a maintained, compatible library or icon set when it genuinely saves time; do not rebuild commodity UI/icon work for its own sake.
-- **First user journey:** LinkedIn: define filter → scan → review jobs → save/blacklist companies → outreach/apply → track outcome.
-
-### A. Development safety and verification
-
-15. **Restore the documented verification commands.** Add `npm run check` (typecheck, lint, test) and `npm run devcheck` as described in `AGENTS.md`. **Why:** every later feature needs one reliable pre-commit check and one supported way to verify behavior in the real Electron renderer; the current documentation and `package.json` disagree.
-
-16. **Verify the existing vertical slice in the running application before extending it.** Confirm login-state checks, visible LinkedIn/Naukri view switching, count fetches, recent LinkedIn application capture, SQLite writes, and run-log rows against the real app. **Why:** green static checks do not prove selectors, navigation timing, or visible layout work against live platform pages.
-
-17. **Make the working-tree/runtime hygiene explicit.** Keep `.dev/` and migration-backup outputs untracked; check `git status --porcelain` before each implementation commit. **Why:** local CDP/runtime files and database backups must not leak into source control.
-
-### B. Internal command API and workflow foundations
-
-18. **Define a small internal command vocabulary.** Start with typed commands such as `jobs:discover`, `jobs:list`, `jobs:get`, `companies:setDisposition`, `filters:save`, `filters:run`, and `runs:cancel`; retain existing low-level platform actions behind these commands. **Why:** UI, schedules, chained tooling, and future MCP integrations gain one stable interface while selector/platform details remain isolated.
-
-19. **Introduce a deterministic discovery request/result contract.** A request should carry criteria (keywords, location, remote, source selection, date/experience filters where supported); a result should carry normalized job essentials, source identity/URL, capture timestamp, and outcome/diagnostics. **Why:** every adapter can implement the same useful workflow without pretending they offer identical filters or DOM structures.
-
-20. **Keep orchestration deliberately thin for now.** Use a deterministic dispatcher that selects requested adapters, applies existing locks/login/mode/logging conventions, and stores results. Defer multi-step LLM planning, autonomous retries, and tool selection. **Why:** this gives a clean seam now without delaying the first useful search flow.
-
-21. **Inspect the legacy scripts before porting any discovery behavior.** Inventory `C:\\Users\\i\\afterq\\tools` by platform, inputs, outputs, dependencies, selectors, and side effects; extract only the smallest reusable operations. **Why:** the scripts contain proven behavior but their monolithic structure is not the architecture for Bojeno.
-
-22. **Choose the first ATS adapter from evidence.** Compare Lever and Ashby scripts/endpoints for a stable public discovery path, simple pagination, useful company/job IDs, and low implementation risk; then implement only the winner. **Why:** one API-kind adapter alongside LinkedIn proves the session/API split early without committing to a broad ATS surface.
-
-### C. Storage and tracking
-
-23. **Add a minimal discovery storage migration.** Add canonical job records plus source identity/URL and essential company information, retaining raw capture only when it helps debugging or future normalization. Do not implement sophisticated fuzzy merging or unmerge UI. **Why:** scans must be reviewable and trackable across runs, while v1 avoids a data-management project.
-
-24. **Define conservative duplicate behavior.** At minimum, upsert the same `(source, external_id)` on repeat scans and preserve first/last-seen timestamps. Cross-platform matching may be a best-effort later enhancement. **Why:** repeated scheduled/manual scans remain useful without producing a noisy tracker.
-
-25. **Add company dispositions before company enrichment.** Support simple user-controlled states such as neutral, saved, and blacklisted, keyed to the captured company name/source identity. **Why:** the first journey needs practical filtering/control before size/sector enrichment or sophisticated canonical-company management.
-
-26. **Build a queryable jobs read model before a rich tracker.** Support list/review filters for source, date seen, company disposition, and job status; keep the current applied-count chart as a separate metric view. **Why:** users need to review newly discovered jobs immediately, not wait for the full applications CRM.
-
-### D. UI system and product shell
-
-27. **Evaluate a compatible Windows-98-style UI foundation before writing primitives.** Test maintained options for React/Electron compatibility, accessibility, bundle health, theming flexibility, and license; adopt one only if it fits the app’s two-pane architecture. **Why:** a library may accelerate the visual baseline, but a poorly fitting novelty theme would create more work than a tiny local layer.
-
-28. **If no library fits, create only a minimal local component layer.** Limit it to panels/windows, buttons, inputs/selects, tabs, status chips, data grid, progress, dialog, toast, and icon wrapper. **Why:** consistency and reusable behavior matter; a full custom design system does not.
-
-29. **Use existing iconography where possible.** Choose a cohesive, license-compatible icon source with simple line/pixel-friendly icons, then adapt sizing/color to the classic theme. **Why:** recognizable navigation and action cues should not become bespoke illustration work.
-
-30. **Replace the fixed prototype dashboard with a product shell.** Plan a compact header, left navigation, central workspace, visible docked browser pane with platform tabs, and activity/status region. **Why:** it reflects the intended command-center workflow while preserving transparent visible automation.
-
-31. **Build the first UI screen around the LinkedIn discovery journey, not a generic dashboard.** It should let a user define/run a search, see progress/log outcome, review captured jobs, and set company disposition. **Why:** the UI earns its complexity only when it completes an actual user task.
-
-### E. Incremental capability rollout
-
-32. **Complete LinkedIn discovery as the reference vertical slice.** Implement deterministic filter → visible scan → normalized/store results → review list → saved/blacklisted company behavior → structured logs. **Why:** this establishes the reusable end-to-end pattern for every subsequent adapter.
-
-33. **Complete one Lever-or-Ashby discovery slice using the same command and storage contracts.** It needs no browser view/login gate but must participate in the same job list and logs. **Why:** it validates that ATS adapters are first-class rather than a side pipeline.
-
-34. **Add outreach/apply as separately gated commands after discovery/review is stable.** These commands must reuse action-time mode checks, login checks where relevant, locks, rate budgets, visible execution, and logs. **Why:** applying is higher risk than discovery and should build on a proven command boundary.
-
-35. **Add saved filters and schedules only after the manual discovery command is dependable.** Scheduled runs must remain visible/logged and wait for kill switch and circuit-breaker work already specified in this brief. **Why:** an unreliable manual workflow becomes a harmful unattended workflow when scheduled.
-
-36. **Add LLM assistance only after deterministic commands, data shapes, and audit logs are stable.** Connect it as an optional caller of the same command/query layer, with clear provenance and no ability to bypass safety gates. **Why:** the model becomes a useful planner/assistant rather than the place where core product logic hides.
+**In progress / next:** wire LinkedIn discovery scan → review → save/blacklist company → apply into one connected dashboard journey (§6). This is the only active work item — everything else is deferred (§13) until this journey is dogfooded and solid.
 
 ## 12. Reference repos
 
@@ -325,4 +223,22 @@ Before building a new adapter or discovery feature from scratch, check whether o
 | `C:\Users\i\afterq\career-ops` (local, private) | A more mature/structured sibling project — worth diffing against for patterns (e.g. eligibility/filter logic) before designing new Bojeno subsystems. |
 | [colophon-group/jobseek](https://github.com/colophon-group/jobseek) (`apps/crawler/src/core/monitors/lever.py` etc.) | External OSS reference for ATS monitor implementations (Lever and others) — useful for cross-checking edge cases the local scripts don't cover. |
 
-Lever adapter (#18) was built primarily from `afterq/tools/providers/lever.mjs`, already proven against real boards — jobseek wasn't needed since the local script already had the full flat-field shape (title/url/company/location/description/postedAt) with no pagination/auth complexity.
+The Lever adapter itself (originally #18) was removed 2026-09-12 in the complexity cut below — this row stays as a pointer back to `lever.mjs` for whenever a second adapter is actually built.
+
+## 13. Deferred past v0.1
+
+*Cut 2026-09-12: four sessions had built a scheduler, a rate-limit ledger, a capability-based adapter registry, and a full Lever ATS adapter (discovery + apply) before the single core user journey — LinkedIn discover → review → apply → track — was working end-to-end in the running app. All of it was real, tested, working code; none of it was earning its place yet. It was deleted outright (not just stopped) rather than left inert in the tree, on the theory that git history is the archive and a smaller, more honest tree is worth more right now than optionality that isn't needed yet. Re-read the relevant commit (before 77131ad / around 0a40366, c5ecbff) if any of this needs to come back — porting proven code is still preferred over re-deriving it from scratch (see memory: prefer porting/gluing over new architecture).*
+
+Nothing below is scheduled. Each item comes back only when a real feature need forces it, not on a timeline:
+
+- **ATS/discovery adapters** (Lever, Ashby, Greenhouse, SmartRecruiters, Workday) and the `kind: 'session' | 'api'` capability-based `Adapter` split that supported having more than one adapter shape. Re-add the split only when a second, structurally different adapter is actually being built.
+- **Rate-limit ledger** (`action_budget` table, rolling-window per-platform/action-type budget). Add when a scheduler or any unattended/high-volume action actually exists to make an implicit pace risky.
+- **Scheduler + circuit breaker** (user-defined cron entries, auto-disable after N consecutive failures) and the **kill switch** that was scoped to guard it. None of these have a caller yet — the app has no unattended runs to schedule or kill.
+- **Canonical `jobs`/`companies` merge tables** (`job_sources`, `company_identifiers`, cross-source dedupe/unmerge). Current flat per-source tables (`applied_jobs`, `company_blacklist`) are good enough until a real cross-platform duplicate problem shows up.
+- **`profile` table / answer-bank as its own schema object with per-field `source` provenance.** Answer bank currently lives as local config (`main/config/answerBank.ts`), which is enough for one user on one machine.
+- **`saved_filters` with `match_mode: 'exact' | 'llm_assisted'`**, and any LLM-assisted filtering/enrichment/planning. Deterministic-only until the manual flow is dependable.
+- **Company size/sector enrichment** (`operations/enrich-company.ts` seam).
+- **Dual-account policy / test-account gating** for live-mode rollout of a new feature.
+- **Windows-98 UI kit / custom design system.** Current UI is plain, functional React — revisit visual identity once the app does something worth making pretty.
+- **Public plugin/extension marketplace**, MCP/CLI surfacing of the internal command API, packaging (`electron-builder`).
+- **`selectors:healthcheck` diagnostic command.**

@@ -1,8 +1,4 @@
-/** Session-kind platforms only - these have a WebContentsView and a login gate. */
 export type Platform = 'linkedin' | 'naukri'
-
-/** Any adapter id that can appear in run_logs/apply_attempts/action_budget rows - session platforms plus api-kind sources like Lever. */
-export type Source = Platform | 'lever'
 
 export type RunMode = 'read-only' | 'dry-run' | 'live'
 
@@ -16,7 +12,7 @@ export interface LoginStatus {
 }
 
 export interface ActiveTabUrl {
-  platform: Source
+  platform: Platform
   url: string
 }
 
@@ -79,31 +75,6 @@ export interface ApplyResult {
   outcome: 'applied' | 'dry_run_ok' | 'needs_review' | 'skipped' | 'error'
   reason?: string
   header?: string
-}
-
-/** One job posting returned by an api-kind adapter's discover(), e.g. Lever. */
-export interface DiscoveredJob {
-  source: string
-  externalId: string
-  title: string
-  company: string
-  location: string
-  url: string
-  description: string
-  postedAt: string | null
-}
-
-export interface DiscoverParams {
-  /** Adapter-specific company identifier, e.g. a Lever board slug. One company per call — orchestration loops over the list, same as checkLogin/appliedCount handle one platform per call. */
-  company: string
-}
-
-export interface DiscoverResult {
-  outcome: RunOutcome
-  source: string
-  jobs: DiscoveredJob[]
-  /** One entry per requested company that failed, so a bad slug doesn't sink the whole batch. */
-  errors: { company: string; message: string }[]
 }
 
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */

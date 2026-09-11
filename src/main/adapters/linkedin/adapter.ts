@@ -1,4 +1,3 @@
-import type { Adapter } from '../types'
 import type {
   ApplicationMetrics,
   ApplyResult,
@@ -30,7 +29,7 @@ import { loadAnswerBank } from '../../config/answerBank'
 // picker along with whatever section it was actually after.
 const SECTION_STOP_MARKERS = ['More jobs', 'See more jobs like this']
 
-async function checkLogin(): Promise<LoginStatus> {
+export async function checkLogin(): Promise<LoginStatus> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, linkedinSelectors.rootUrl, { waitUntil: 'commit' })
   const loggedIn = await waitForPathname(page, linkedinSelectors.loggedInPath)
@@ -38,7 +37,7 @@ async function checkLogin(): Promise<LoginStatus> {
   return { platform: 'linkedin', loggedIn, checkedAt: new Date().toISOString() }
 }
 
-async function appliedCount(): Promise<ApplicationMetrics> {
+export async function appliedCount(): Promise<ApplicationMetrics> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, linkedinSelectors.appliedCountUrl, { waitUntil: 'commit' })
 
@@ -82,7 +81,7 @@ async function extractRows(page: Awaited<ReturnType<typeof findPageByUrlPart>>):
 
 const MAX_PAGES = 20
 
-async function recentAppliedJobs(): Promise<ScrapedJob[]> {
+export async function recentAppliedJobs(): Promise<ScrapedJob[]> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, linkedinSelectors.appliedCountUrl, { waitUntil: 'commit' })
 
@@ -142,7 +141,7 @@ async function recentAppliedJobs(): Promise<ScrapedJob[]> {
  * attribute-substring match on a real href holds up better than assuming a
  * fixed line position in the page's text.
  */
-async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
+export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, jobUrl, { waitUntil: 'domcontentloaded' })
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
@@ -197,9 +196,11 @@ async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
  * raw leaves to the pure, unit-tested parseCardFromLeaves for the actual
  * field extraction.
  */
-async function scanJobs(params: {
+export async function scanJobs(params: {
   keywords?: string
   location?: string
+  sortByRecent?: boolean
+  easyApplyOnly?: boolean
 }): Promise<ScannedJobCard[]> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, buildSearchUrl(params), { waitUntil: 'domcontentloaded' })
@@ -239,7 +240,7 @@ async function scanJobs(params: {
  * - see config/answerBank.ts), and steps through the modal. dryRun defaults to true;
  * the caller must explicitly pass false to actually submit.
  */
-async function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {
+export async function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, buildApplyUrl(jobId), { waitUntil: 'domcontentloaded' })
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
@@ -253,23 +254,4 @@ async function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {
   const rules = buildRules(answers, jdText)
 
   return stepThroughModal(page, rules, dryRun)
-}
-
-export const linkedinAdapter: Adapter = {
-  id: 'linkedin',
-  kind: 'session',
-  capabilities: new Set([
-    'checkLogin',
-    'appliedCount',
-    'recentAppliedJobs',
-    'captureJobDetails',
-    'scanJobs',
-    'apply'
-  ]),
-  checkLogin,
-  appliedCount,
-  recentAppliedJobs,
-  captureJobDetails,
-  scanJobs,
-  applyToJob
 }

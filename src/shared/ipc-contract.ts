@@ -2,15 +2,13 @@ import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
-  DiscoverResult,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
   LoginStatus,
   Platform,
   RunLogRow,
-  ScannedJobCard,
-  Source
+  ScannedJobCard
 } from './types'
 
 export const IpcChannels = {
@@ -21,9 +19,6 @@ export const IpcChannels = {
   linkedinScanJobs: 'linkedin:scanJobs',
   linkedinApplyToJob: 'linkedin:applyToJob',
   naukriCheckLogin: 'naukri:checkLogin',
-  naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
-  atsDiscover: 'ats:discover',
-  atsApply: 'ats:apply',
   platformActivateTab: 'platform:activateTab',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
   trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
@@ -40,18 +35,8 @@ export interface ActivateTabArgs {
 export interface ScanJobsArgs {
   keywords?: string
   location?: string
-}
-
-export interface AtsDiscoverArgs {
-  source: Source
-  companies: string[]
-}
-
-export interface AtsApplyArgs {
-  source: Source
-  jobUrl: string
-  dryRun: boolean
-  company?: string
+  sortByRecent?: boolean
+  easyApplyOnly?: boolean
 }
 
 export interface IpcContract {
@@ -70,10 +55,6 @@ export interface IpcContract {
   [IpcChannels.naukriCheckLogin]: {
     args: []
     return: LoginStatus
-  }
-  [IpcChannels.naukriFetchAppliedCount]: {
-    args: []
-    return: FetchAppliedCountResult
   }
   [IpcChannels.platformActivateTab]: {
     args: [ActivateTabArgs]
@@ -102,13 +83,5 @@ export interface IpcContract {
   [IpcChannels.trackerGetRunLogs]: {
     args: []
     return: RunLogRow[]
-  }
-  [IpcChannels.atsDiscover]: {
-    args: [AtsDiscoverArgs]
-    return: DiscoverResult
-  }
-  [IpcChannels.atsApply]: {
-    args: [AtsApplyArgs]
-    return: ApplyResult
   }
 }

@@ -47,10 +47,19 @@ export function parseCardFromLeaves(id: string, leaves: string[]): ScannedJobCar
  * the "Most recent" sort and real freshness buckets the semantic page
  * doesn't expose.
  */
-export function buildSearchUrl(params: { keywords?: string; location?: string }): string {
+export function buildSearchUrl(params: {
+  keywords?: string
+  location?: string
+  sortByRecent?: boolean
+  easyApplyOnly?: boolean
+}): string {
   const url = new URL('https://www.linkedin.com/jobs/search/')
   if (params.keywords) url.searchParams.set('keywords', params.keywords)
   if (params.location) url.searchParams.set('location', params.location)
   url.searchParams.set('origin', 'CLASSIC_SEARCH_MODE_FROM_SEMANTIC')
+  // LinkedIn's own "Most recent" sort option - DD (date descending), vs default R (relevance).
+  if (params.sortByRecent) url.searchParams.set('sortBy', 'DD')
+  // LinkedIn's own "Easy Apply" filter checkbox.
+  if (params.easyApplyOnly) url.searchParams.set('f_AL', 'true')
   return url.toString()
 }
