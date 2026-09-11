@@ -55,7 +55,7 @@ A local-first, open-source desktop app that automates the tedious parts of job h
 │  │  Structured logger → run_logs                         │       │
 │  └───────────────┬─────────────────────────────────────┘        │
 │                   ▼                                              │
-│         better-sqlite3 — single file, timestamped migrations,    │
+│         node:sqlite — single file, timestamped migrations,       │
 │         applied_migrations table, timestamped backup copy        │
 │         before every migration (see §3b for full schema)         │
 └─────────────────────────────────────────────────────────────┘
@@ -100,7 +100,7 @@ bojeno/
         index.ts                 # user-defined cron entries, circuit breaker
       operations/                # cross-cutting, non-adapter-specific (e.g. enrich-company.ts)
       db/
-        index.ts                 # better-sqlite3 connection
+        index.ts                 # node:sqlite connection
         migrations/
           20260911T1430_init.sql # timestamp-prefixed, not sequential — worktrees collide on sequential numbers
         queries/                 # one file per table/domain
@@ -179,7 +179,7 @@ All tables defined in the first migration. Timestamp-prefixed migration filename
 | Adapter interface | Capability-based `Adapter` (`kind: 'session' \| 'api'`, `capabilities: Set<Capability>`), not a flat single-shape interface | ATS providers have no login/session/view and HTTP-budget rate limits, structurally different from LinkedIn/Naukri. The engine branches on `kind` for view/login-gate/ledger-dimension — a single flat interface would misrepresent that split. Both kinds write into the same `job_sources` table, keeping ATS first-class rather than a separate pipeline. |
 | Per-platform isolation | One `WebContentsView` per platform, each its own `persist:<platform>-<instanceId>` partition, swapped into a tab strip | Gives tab UX and login isolation for free. Instance-scoped naming prevents parallel worktrees from sharing sessions. |
 | Login gating | Simple login-check utility acts as a gate before any session-kind adapter action runs (API adapters have no login gate) | Prevents silent failures against a logged-out session; produces an explicit `auth_required` outcome in `run_logs` and a blocking dashboard banner instead of a buried failure. |
-| Local storage | SQLite via `better-sqlite3`, not per-tool JSON/JSONL, not `sql.js` | Job tracker aggregates across platforms — a relational join, not a per-file scan. `better-sqlite3`'s sync API is faster for this workload and has the most reliable prebuilt bindings for Electron's Node ABI. Export-to-JSON is a flat dump command, built last, not a sync feature. |
+| Local storage | SQLite via Node's built-in `node:sqlite` (`DatabaseSync`), not `better-sqlite3`, not per-tool JSON/JSONL, not `sql.js`. **Changed from the original plan** (see note below) | Job tracker aggregates across platforms — a relational join, not a per-file scan. A sync API is what this workload wants either way. `better-sqlite3` was the original choice for its sync API and (assumed) reliable prebuilt bindings, but on the actual dev machine no prebuilt binary existed for this Electron version and no C++ compiler was installed to build it from source — installing one was rejected in favor of `node:sqlite`, which ships inside Electron's own bundled Node (confirmed present: Electron 39.8.10 bundles Node 22.22.1) and needs zero native compilation, on this machine or any future one. Tradeoff: `node:sqlite` is marked experimental in Node and its API could still change. Export-to-JSON is a flat dump command, built last, not a sync feature. |
 | Credentials | Platform logins: never touched by the app — Chromium's own cookie storage per partition holds the session. Optional LLM key: Electron `safeStorage` (OS keychain-backed) | The app has nothing to protect for platform logins — stronger privacy claim than "stored securely," because nothing is stored. `safeStorage` is the one real secret-management need; warn (don't silently degrade) if no Linux keyring daemon is present. |
 | Language | TypeScript everywhere (main, preload, renderer, ported scripts), `strict: true` from commit 1 | Solo dev, no code review layer — the compiler is the review layer. Directly prevents IPC-payload-mismatch bugs. Loosening strictness later is far more painful than starting strict. |
 | IPC | One shared typed contract file, imported by both main and renderer | Prevents payload-shape drift between processes — a boring fix for a disproportionately expensive bug class. |
