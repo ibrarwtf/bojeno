@@ -34,6 +34,7 @@ const bojenoApi = {
   },
   activateTab: (args: ActivateTabArgs): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.platformActivateTab, args),
+  showHome: (): Promise<void> => ipcRenderer.invoke(IpcChannels.platformShowHome),
   getActiveTabUrl: (): Promise<ActiveTabUrl> =>
     ipcRenderer.invoke(IpcChannels.platformGetActiveTabUrl),
   onActiveTabUrlChanged: (callback: (data: ActiveTabUrl) => void): (() => void) => {
