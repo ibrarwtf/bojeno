@@ -6,3 +6,4 @@ out
 *.log*
 .claude/
 migration-backups/
+.tmp-*

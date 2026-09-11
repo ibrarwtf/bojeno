@@ -1,6 +1,6 @@
-# bojeno-scaffold
+# ⍢ Bojeno
 
-An Electron application with React and TypeScript
+Local-first job-search automation desktop app. See [`bojeno-project-brief.md`](./bojeno-project-brief.md) for the full architecture and decisions, and [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the git/issue workflow.
 
 ## Recommended IDE Setup
 
@@ -11,24 +11,32 @@ An Electron application with React and TypeScript
 ### Install
 
 ```bash
-$ npm install
+npm install
 ```
 
 ### Development
 
 ```bash
-$ npm run dev
+npm run dev
+```
+
+### Checks
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
 ```
 
 ### Build
 
 ```bash
 # For windows
-$ npm run build:win
+npm run build:win
 
 # For macOS
-$ npm run build:mac
+npm run build:mac
 
 # For Linux
-$ npm run build:linux
+npm run build:linux
 ```

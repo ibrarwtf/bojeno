@@ -1,0 +1,13 @@
+# Normalize line endings to LF for everything text-based, regardless of the
+# checking-out machine's core.autocrlf setting. Without this, every session
+# that edits a file with a tool writing LF (most of them) produces a wall of
+# spurious CRLF-vs-LF prettier/eslint warnings across unrelated files on the
+# next lint run, and can make `npm run format` silently rewrite files that
+# weren't otherwise touched.
+* text=auto eol=lf
+
+*.ico binary
+*.icns binary
+*.png binary
+*.jpg binary
+*.svg text eol=lf

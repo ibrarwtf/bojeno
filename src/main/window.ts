@@ -64,6 +64,7 @@ function createPlatformView(platform: Platform): WebContentsView {
 
 export function createWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
+    title: '⍢ Bojeno',
     width: 1280,
     height: 800,
     show: false,
@@ -74,6 +75,8 @@ export function createWindow(): BrowserWindow {
     }
   })
 
+  // The renderer's own <title> would otherwise win once it loads.
+  mainWindow.on('page-title-updated', (event) => event.preventDefault())
   mainWindow.on('ready-to-show', () => mainWindow?.show())
   mainWindow.on('resize', layoutViews)
   mainWindow.webContents.setWindowOpenHandler((details) => {
