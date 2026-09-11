@@ -72,6 +72,26 @@ async function waitForStableUrl(
 }
 
 /**
+ * Waits for the page's URL path to start with `pathPrefix`, up to a timeout.
+ * Used for login checks: navigate to a platform's root URL, then wait to see
+ * whether it redirects to the logged-in area (path arrives) or stays on a
+ * login/landing page (times out) — not fighting the platform's own routing,
+ * just watching where it lands.
+ */
+export async function waitForPathname(
+  page: Page,
+  pathPrefix: string,
+  timeoutMs = 10000
+): Promise<boolean> {
+  return page
+    .waitForFunction((path) => window.location.pathname.startsWith(path), pathPrefix, {
+      timeout: timeoutMs
+    })
+    .then(() => true)
+    .catch(() => false)
+}
+
+/**
  * Electron's own initial navigation can still be settling when a second
  * navigation is issued, aborting it with net::ERR_ABORTED — retry a few
  * times with a short backoff before giving up.

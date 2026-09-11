@@ -1,26 +1,14 @@
 import type { Adapter } from '../types'
 import type { ApplicationMetrics, LoginStatus } from '../../../shared/types'
-import { findPageByUrlPart, gotoWithRetry } from '../../cdp'
+import { findPageByUrlPart, gotoWithRetry, waitForPathname } from '../../cdp'
 import { linkedinSelectors } from './selectors'
 
 async function checkLogin(): Promise<LoginStatus> {
   const page = await findPageByUrlPart('linkedin.com')
-  await gotoWithRetry(page, linkedinSelectors.loginCheckUrl, { waitUntil: 'commit' })
+  await gotoWithRetry(page, linkedinSelectors.rootUrl, { waitUntil: 'commit' })
+  const loggedIn = await waitForPathname(page, linkedinSelectors.loggedInPath)
 
-  const redirectedAwayFromFeed = await page
-    .waitForFunction(
-      (path) => !window.location.pathname.startsWith(path),
-      linkedinSelectors.loginCheckPath,
-      { timeout: 4000 }
-    )
-    .then(() => true)
-    .catch(() => false)
-
-  return {
-    platform: 'linkedin',
-    loggedIn: !redirectedAwayFromFeed,
-    checkedAt: new Date().toISOString()
-  }
+  return { platform: 'linkedin', loggedIn, checkedAt: new Date().toISOString() }
 }
 
 async function appliedCount(): Promise<ApplicationMetrics> {
