@@ -50,6 +50,18 @@ export interface FetchRecentAppliedJobsResult {
   jobsFound?: number
 }
 
+/** One job card as read off a LinkedIn search-results page. */
+export interface ScannedJobCard {
+  id: string
+  title: string
+  company: string
+  location: string
+  easyApply: boolean
+  alreadyApplied: boolean
+  postedRelative: string | null
+  parseWarning: boolean
+}
+
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
 export interface JobDetails {
   jobUrl: string

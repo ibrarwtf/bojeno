@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { IpcChannels, type ActivateTabArgs } from '../shared/ipc-contract'
+import { IpcChannels, type ActivateTabArgs, type ScanJobsArgs } from '../shared/ipc-contract'
 import type {
   ActiveTabUrl,
   AppliedCountPoint,
@@ -8,7 +8,8 @@ import type {
   FetchRecentAppliedJobsResult,
   JobDetails,
   LoginStatus,
-  Platform
+  Platform,
+  ScannedJobCard
 } from '../shared/types'
 
 const bojenoApi = {
@@ -42,7 +43,9 @@ const bojenoApi = {
   getAppliedCountHistory: (): Promise<AppliedCountPoint[]> =>
     ipcRenderer.invoke(IpcChannels.trackerGetAppliedCountHistory),
   captureJobDetails: (jobUrl: string): Promise<JobDetails> =>
-    ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl)
+    ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl),
+  scanJobs: (params: ScanJobsArgs): Promise<ScannedJobCard[]> =>
+    ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params)
 }
 
 if (process.contextIsolated) {

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { IpcChannels } from '../channels'
+import type { ScanJobsArgs } from '../../../shared/ipc-contract'
 import { getAdapter } from '../../adapters/registry'
 import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
@@ -38,6 +39,15 @@ export function registerLinkedinHandlers(): void {
         throw new Error('linkedin adapter has no captureJobDetails capability')
       }
       return adapter.captureJobDetails(jobUrl)
+    })
+  )
+
+  ipcMain.handle(IpcChannels.linkedinScanJobs, (_event, params: ScanJobsArgs) =>
+    withLock('linkedin', () => {
+      ensurePlatformViewLoaded('linkedin')
+      const adapter = getAdapter('linkedin')
+      if (!adapter.scanJobs) throw new Error('linkedin adapter has no scanJobs capability')
+      return adapter.scanJobs(params)
     })
   )
 }
