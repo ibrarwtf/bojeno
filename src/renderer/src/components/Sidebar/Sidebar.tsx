@@ -16,39 +16,39 @@ export function Sidebar({
 }): React.JSX.Element {
   return (
     <div className="sidebar">
-      <h1 className="sidebar-title">Bojeno</h1>
+      <span className="sidebar-logo" title="Bojeno" aria-hidden="true">
+        ⍢
+      </span>
       <div className="sidebar-nav">
         <button
           className={`sidebar-item${activeView === 'home' ? ' active' : ''}`}
+          title="Home"
           onClick={() => onSelectView('home')}
         >
           <span className="sidebar-icon" aria-hidden="true">
             ⌂
           </span>
-          Home
         </button>
         <div className="sidebar-platforms">
           {platforms.map((p) => (
             <button
               key={p.id}
               className={`sidebar-item${p.id === activeView ? ' active' : ''}`}
+              title={p.soon ? `${p.label} (soon)` : p.label}
               disabled={p.soon}
               onClick={() => onSelectView(p.id)}
             >
               <span className="sidebar-icon" aria-hidden="true">
                 {p.icon}
               </span>
-              {p.label}
-              {p.soon && <span className="sidebar-soon">Soon</span>}
             </button>
           ))}
         </div>
       </div>
-      <button className="sidebar-item sidebar-settings" disabled>
+      <button className="sidebar-item sidebar-settings" title="Settings" disabled>
         <span className="sidebar-icon" aria-hidden="true">
           ⚙
         </span>
-        Settings
       </button>
     </div>
   )

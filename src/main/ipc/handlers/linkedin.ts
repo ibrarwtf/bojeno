@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { IpcChannels } from '../channels'
-import type { ScanJobsArgs } from '../../../shared/ipc-contract'
+import type { ScanJobsArgs, CreateSavedSearchArgs } from '../../../shared/ipc-contract'
 import type { ApplyResult, RunMode } from '../../../shared/types'
 import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
@@ -10,6 +10,12 @@ import { insertAppliedCount } from '../../db/queries/appliedCounts'
 import { upsertAppliedJob } from '../../db/queries/appliedJobs'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
 import { isCompanyBlacklisted } from '../../db/queries/companyBlacklist'
+import {
+  listSavedSearches,
+  createSavedSearch,
+  deleteSavedSearch,
+  touchSavedSearchLastRun
+} from '../../db/queries/linkedinSavedSearches'
 import {
   checkLogin,
   appliedCount,
@@ -228,5 +234,16 @@ export function registerLinkedinHandlers(): void {
           throw error
         }
       })
+  )
+
+  ipcMain.handle(IpcChannels.linkedinSavedSearchesList, () => listSavedSearches(getDb()))
+  ipcMain.handle(IpcChannels.linkedinSavedSearchesCreate, (_event, args: CreateSavedSearchArgs) =>
+    createSavedSearch(getDb(), args)
+  )
+  ipcMain.handle(IpcChannels.linkedinSavedSearchesDelete, (_event, id: number) =>
+    deleteSavedSearch(getDb(), id)
+  )
+  ipcMain.handle(IpcChannels.linkedinSavedSearchesTouchRun, (_event, id: number) =>
+    touchSavedSearchLastRun(getDb(), id)
   )
 }

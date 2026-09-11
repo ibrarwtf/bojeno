@@ -5,6 +5,7 @@ import type {
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
+  LinkedinSavedSearch,
   LoginStatus,
   Platform,
   RunLogRow,
@@ -18,6 +19,10 @@ export const IpcChannels = {
   linkedinCaptureJobDetails: 'linkedin:captureJobDetails',
   linkedinScanJobs: 'linkedin:scanJobs',
   linkedinApplyToJob: 'linkedin:applyToJob',
+  linkedinSavedSearchesList: 'linkedin:savedSearches:list',
+  linkedinSavedSearchesCreate: 'linkedin:savedSearches:create',
+  linkedinSavedSearchesDelete: 'linkedin:savedSearches:delete',
+  linkedinSavedSearchesTouchRun: 'linkedin:savedSearches:touchRun',
   naukriCheckLogin: 'naukri:checkLogin',
   platformActivateTab: 'platform:activateTab',
   platformShowHome: 'platform:showHome',
@@ -34,6 +39,14 @@ export interface ActivateTabArgs {
 }
 
 export interface ScanJobsArgs {
+  keywords?: string
+  location?: string
+  sortByRecent?: boolean
+  easyApplyOnly?: boolean
+}
+
+export interface CreateSavedSearchArgs {
+  name: string
   keywords?: string
   location?: string
   sortByRecent?: boolean
@@ -88,5 +101,21 @@ export interface IpcContract {
   [IpcChannels.trackerGetRunLogs]: {
     args: []
     return: RunLogRow[]
+  }
+  [IpcChannels.linkedinSavedSearchesList]: {
+    args: []
+    return: LinkedinSavedSearch[]
+  }
+  [IpcChannels.linkedinSavedSearchesCreate]: {
+    args: [CreateSavedSearchArgs]
+    return: LinkedinSavedSearch
+  }
+  [IpcChannels.linkedinSavedSearchesDelete]: {
+    args: [number]
+    return: void
+  }
+  [IpcChannels.linkedinSavedSearchesTouchRun]: {
+    args: [number]
+    return: void
   }
 }

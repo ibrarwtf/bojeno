@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { IpcChannels, type ActivateTabArgs, type ScanJobsArgs } from '../shared/ipc-contract'
+import {
+  IpcChannels,
+  type ActivateTabArgs,
+  type CreateSavedSearchArgs,
+  type ScanJobsArgs
+} from '../shared/ipc-contract'
 import type {
   ActiveTabUrl,
   AppliedCountPoint,
@@ -8,6 +13,7 @@ import type {
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
+  LinkedinSavedSearch,
   LoginStatus,
   Platform,
   RunLogRow,
@@ -50,7 +56,15 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
   applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
-  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs)
+  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
+  listSavedSearches: (): Promise<LinkedinSavedSearch[]> =>
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesList),
+  createSavedSearch: (args: CreateSavedSearchArgs): Promise<LinkedinSavedSearch> =>
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesCreate, args),
+  deleteSavedSearch: (id: number): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesDelete, id),
+  touchSavedSearchLastRun: (id: number): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesTouchRun, id)
 }
 
 if (process.contextIsolated) {
