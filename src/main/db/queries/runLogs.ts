@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { RunMode, RunOutcome } from '../../../shared/types'
+import type { RunLogRow, RunMode, RunOutcome } from '../../../shared/types'
 
 export interface RunLogEntry {
   script: string
@@ -14,6 +14,24 @@ export interface RunLogEntry {
   errorDetail?: unknown
   runId?: string
   stepIndex?: number
+}
+
+/** Most recent first, for the live log panel. */
+export function getRecentRunLogs(db: DatabaseSync, limit = 50): RunLogRow[] {
+  const rows = db
+    .prepare('SELECT timestamp, script, outcome, entity_id FROM run_logs ORDER BY id DESC LIMIT ?')
+    .all(limit) as {
+    timestamp: string
+    script: string
+    outcome: RunOutcome
+    entity_id: string | null
+  }[]
+  return rows.map((row) => ({
+    timestamp: row.timestamp,
+    script: row.script,
+    outcome: row.outcome,
+    entityId: row.entity_id
+  }))
 }
 
 export function insertRunLog(db: DatabaseSync, entry: RunLogEntry): void {

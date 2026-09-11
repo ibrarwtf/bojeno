@@ -7,6 +7,7 @@ import type {
   JobDetails,
   LoginStatus,
   Platform,
+  RunLogRow,
   ScannedJobCard
 } from './types'
 
@@ -22,6 +23,7 @@ export const IpcChannels = {
   platformActivateTab: 'platform:activateTab',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
   trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
+  trackerGetRunLogs: 'tracker:getRunLogs',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -80,5 +82,9 @@ export interface IpcContract {
   [IpcChannels.linkedinApplyToJob]: {
     args: [string, boolean]
     return: ApplyResult
+  }
+  [IpcChannels.trackerGetRunLogs]: {
+    args: []
+    return: RunLogRow[]
   }
 }

@@ -5,8 +5,10 @@ import { instanceId } from './instance'
 import type { ActiveTabUrl, Platform } from '../shared/types'
 import { IpcChannels } from '../shared/ipc-contract'
 
-const LEFT_PANE_WIDTH = 360
+const LEFT_PANE_WIDTH = 260
+const STATUS_BAR_HEIGHT = 56
 const URL_BAR_HEIGHT = 36
+const LOG_PANEL_HEIGHT = 160
 
 const platformHomeUrl: Record<Platform, string> = {
   linkedin: 'https://www.linkedin.com',
@@ -25,11 +27,12 @@ let activePlatform: Platform = 'linkedin'
 function layoutViews(): void {
   if (!mainWindow || !views) return
   const { width, height } = mainWindow.getContentBounds()
+  const top = STATUS_BAR_HEIGHT + URL_BAR_HEIGHT
   const bounds = {
     x: LEFT_PANE_WIDTH,
-    y: URL_BAR_HEIGHT,
+    y: top,
     width: Math.max(width - LEFT_PANE_WIDTH, 0),
-    height: Math.max(height - URL_BAR_HEIGHT, 0)
+    height: Math.max(height - top - LOG_PANEL_HEIGHT, 0)
   }
   for (const platform of Object.keys(views) as Platform[]) {
     views[platform].setBounds(bounds)
