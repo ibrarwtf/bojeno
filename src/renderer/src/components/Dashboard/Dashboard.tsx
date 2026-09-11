@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type {
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
@@ -55,11 +55,10 @@ export function Dashboard(): React.JSX.Element {
     }
   }
 
-  useEffect(() => {
-    platforms.forEach((platform) => {
-      void checkPlatform(platform)
-    })
-  }, [])
+  // Deliberately no auto-check-on-mount here: every app launch used to hit
+  // both LinkedIn and Naukri unconditionally just to render the dashboard,
+  // which is unnecessary traffic against real accounts and a rate-limit
+  // risk. Login status starts unknown and is only checked on request.
 
   function logInNow(platform: Platform): void {
     void window.bojeno.activateTab({ platform, navigateToLogin: true })
@@ -111,11 +110,15 @@ export function Dashboard(): React.JSX.Element {
             <div className="platform-card-header">
               <strong>{platformLabel[platform]}</strong>
               <button onClick={() => void checkPlatform(platform)} disabled={checking[platform]}>
-                {checking[platform] ? 'Checking…' : 'Recheck'}
+                {checking[platform]
+                  ? 'Checking…'
+                  : status.loggedIn === undefined
+                    ? 'Check login'
+                    : 'Recheck'}
               </button>
             </div>
             {status.loggedIn === undefined ? (
-              <p>Checking login status…</p>
+              <p>Login status not checked yet</p>
             ) : status.loggedIn ? (
               <p className="status-ok">Logged in</p>
             ) : (
