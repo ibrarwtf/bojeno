@@ -1,5 +1,6 @@
 import type { Adapter } from '../types'
-import type { DiscoveredJob, DiscoverParams } from '../../../shared/types'
+import type { ApplyResult, DiscoveredJob, DiscoverParams } from '../../../shared/types'
+import { applyToLeverJob } from './apply'
 
 /**
  * Public, unauthenticated postings endpoint — no pagination, no auth, flat
@@ -54,9 +55,14 @@ async function discover(params: DiscoverParams): Promise<DiscoveredJob[]> {
   return json.map((posting) => mapLeverPosting(params.company, posting as LeverPosting))
 }
 
+function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {
+  return applyToLeverJob(jobId, dryRun)
+}
+
 export const leverAdapter: Adapter = {
   id: 'lever',
   kind: 'api',
-  capabilities: new Set(['discover']),
-  discover
+  capabilities: new Set(['discover', 'apply']),
+  discover,
+  applyToJob
 }

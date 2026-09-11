@@ -22,7 +22,7 @@ import {
 import { buildSearchUrl, parseCardFromLeaves } from './scan'
 import { buildApplyUrl, stepThroughModal } from './apply'
 import { buildRules } from './applyRules'
-import { loadAnswerBank } from './answers'
+import { loadAnswerBank } from '../../config/answerBank'
 
 // Fallback only for when the heading-based boundary (see nextHeadingAfter)
 // can't be found - confirmed live that a plain to-end-of-text slice runs
@@ -236,7 +236,7 @@ async function scanJobs(params: {
  * queue/eligibility/batching layer (see apply.ts) - navigates to the job's
  * apply URL (which auto-opens the Easy Apply modal), builds field-matching
  * rules from the JD text plus a locally loaded AnswerBank (never committed
- * - see answers.ts), and steps through the modal. dryRun defaults to true;
+ * - see config/answerBank.ts), and steps through the modal. dryRun defaults to true;
  * the caller must explicitly pass false to actually submit.
  */
 async function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {

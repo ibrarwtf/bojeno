@@ -1,4 +1,8 @@
+/** Session-kind platforms only - these have a WebContentsView and a login gate. */
 export type Platform = 'linkedin' | 'naukri'
+
+/** Any adapter id that can appear in run_logs/apply_attempts/action_budget rows - session platforms plus api-kind sources like Lever. */
+export type Source = Platform | 'lever'
 
 export type RunMode = 'read-only' | 'dry-run' | 'live'
 
@@ -12,7 +16,7 @@ export interface LoginStatus {
 }
 
 export interface ActiveTabUrl {
-  platform: Platform
+  platform: Source
   url: string
 }
 

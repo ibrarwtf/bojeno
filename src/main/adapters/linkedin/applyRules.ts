@@ -2,11 +2,11 @@
  * Ported from afterq/tools/apply-easy-apply.mjs's buildRules, pick-option,
  * and match-rule functions. Pure logic only - regex-to-field mappings, not personal
  * values (those come from the caller's AnswerBank, loaded from a gitignored
- * local file - see answers.ts). Kept verbatim from the original rather than
+ * local file - see config/answerBank.ts). Kept verbatim from the original rather than
  * re-derived: each rule's comment documents a real edge case it was written
  * to fix.
  */
-import type { AnswerBank } from './answers'
+import type { AnswerBank } from '../../config/answerBank'
 
 export interface Rule {
   re: RegExp
