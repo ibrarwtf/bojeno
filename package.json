@@ -15,9 +15,8 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "devcheck": "node scripts/devcheck.cjs",
     "dev:clean": "node scripts/dev-restart.cjs",
-    "dev:restart": "npm run dev:clean && npm run dev",
     "start": "electron-vite preview",
-    "dev": "electron-vite dev --watch",
+    "dev": "npm run dev:clean && electron-vite dev --watch",
     "build": "npm run typecheck && electron-vite build",
     "prepare": "simple-git-hooks"
   },

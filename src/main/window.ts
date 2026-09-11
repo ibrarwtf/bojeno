@@ -94,6 +94,10 @@ export function createWindow(): BrowserWindow {
     width: 1280,
     height: 800,
     show: false,
+    // Matches the renderer's --ev-c-black background - Electron's own window
+    // default is white, which flashes visibly for a frame before the (dark)
+    // renderer paints, especially once child WebContentsViews are attached.
+    backgroundColor: '#1b1b1f',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

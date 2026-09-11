@@ -5,12 +5,13 @@ Read [`bojeno-project-brief.md`](./bojeno-project-brief.md) first — it's the s
 ## Commands
 
 ```bash
-npm run dev          # electron-vite dev --watch — watch requires the flag, see gotchas below
+npm run dev          # kills any stray electron/electron-vite process first, then electron-vite dev --watch
 npm run check        # typecheck + lint + test, in that order — this is what pre-commit runs too
 npm run devcheck --  "<expr>"   # eval an expression against the running app's renderer, see below
-npm run dev:restart  # kill stray electron/node processes left over from a previous dev session, then start fresh
-npm run dev:clean    # same kill, without restarting
+npm run dev:clean    # just the kill step, no restart — for manual troubleshooting
 ```
+
+`npm run dev` always kills stray processes before starting (`setupRemoteDebugging()` in `cdp.ts` picks a new random CDP port on every launch, so a leftover process from an unclean previous session becomes a second, untracked Electron window on a different port — confusing to look at and invisible to `devcheck`, which only ever reads the newest `.dev/cdp-port`). There's deliberately only one command to remember now — don't reach for a raw `electron-vite dev` that skips the cleanup.
 
 A pre-commit hook (`simple-git-hooks`, auto-installed by `npm install` via the `prepare` script) runs `npm run check` on every commit. A commit-msg hook enforces the `<type>(<scope>): #<issue> <summary>` format from `CONTRIBUTING.md` on the subject line. If either fails, the commit is blocked — fix it and commit again, don't bypass with `--no-verify`/`SKIP_SIMPLE_GIT_HOOKS=1` unless the user explicitly asks for that.
 
