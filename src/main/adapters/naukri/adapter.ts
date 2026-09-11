@@ -1,5 +1,5 @@
 import type { Adapter } from '../types'
-import type { LoginStatus } from '../../../shared/types'
+import type { ApplicationMetrics, LoginStatus } from '../../../shared/types'
 import { findPageByUrlPart, gotoWithRetry } from '../../cdp'
 import { naukriSelectors } from './selectors'
 
@@ -18,9 +18,30 @@ async function checkLogin(): Promise<LoginStatus> {
   return { platform: 'naukri', loggedIn: !loggedOut, checkedAt: new Date().toISOString() }
 }
 
+async function appliedCount(): Promise<ApplicationMetrics> {
+  const page = await findPageByUrlPart('naukri.com')
+  await gotoWithRetry(page, naukriSelectors.appliedCountUrl, { waitUntil: 'commit' })
+
+  const numbers = page.locator(
+    `${naukriSelectors.appStatusContainer} ${naukriSelectors.appStatusNumber}`
+  )
+  await numbers.first().waitFor({ timeout: 6000 })
+
+  const texts = await numbers.allTextContents()
+  if (texts.length < 2) {
+    throw new Error(
+      `Expected 2 numbers in ${naukriSelectors.appStatusContainer}, found ${texts.length}`
+    )
+  }
+  const [totalApplies, recruiterActions] = texts.map((text) => Number(text.replace(/,/g, '')))
+
+  return { applied: totalApplies, recruiter_actions: recruiterActions }
+}
+
 export const naukriAdapter: Adapter = {
   id: 'naukri',
   kind: 'session',
-  capabilities: new Set(['checkLogin']),
-  checkLogin
+  capabilities: new Set(['checkLogin', 'appliedCount']),
+  checkLogin,
+  appliedCount
 }

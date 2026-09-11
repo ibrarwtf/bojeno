@@ -10,11 +10,11 @@ const bojenoApi = {
     return ipcRenderer.invoke(channel)
   },
   fetchAppliedCount: (platform: Platform): Promise<FetchAppliedCountResult> => {
-    if (platform !== 'linkedin') {
-      // Naukri's counterpart channel doesn't exist yet — lands with its own issue.
-      return Promise.reject(new Error(`fetchAppliedCount is not yet implemented for ${platform}`))
-    }
-    return ipcRenderer.invoke(IpcChannels.linkedinFetchAppliedCount)
+    const channel =
+      platform === 'linkedin'
+        ? IpcChannels.linkedinFetchAppliedCount
+        : IpcChannels.naukriFetchAppliedCount
+    return ipcRenderer.invoke(channel)
   },
   activateTab: (args: ActivateTabArgs): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.platformActivateTab, args),

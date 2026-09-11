@@ -16,9 +16,12 @@ export interface ActiveTabUrl {
   url: string
 }
 
+/** Metric key -> count. LinkedIn has one ('applied'); Naukri has two. */
+export type ApplicationMetrics = Record<string, number>
+
 export interface FetchAppliedCountResult {
   outcome: RunOutcome
   platform: Platform
-  count?: number
+  metrics?: ApplicationMetrics
   fetchedAt?: string
 }

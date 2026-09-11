@@ -4,12 +4,11 @@ import type { Platform } from '../../../shared/types'
 export function insertAppliedCount(
   db: DatabaseSync,
   platform: Platform,
+  metric: string,
   count: number,
   fetchedAt: string
 ): void {
-  db.prepare('INSERT INTO applied_counts (platform, count, fetched_at) VALUES (?, ?, ?)').run(
-    platform,
-    count,
-    fetchedAt
-  )
+  db.prepare(
+    'INSERT INTO applied_counts (platform, metric, count, fetched_at) VALUES (?, ?, ?, ?)'
+  ).run(platform, metric, count, fetchedAt)
 }

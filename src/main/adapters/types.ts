@@ -1,4 +1,4 @@
-import type { LoginStatus } from '../../shared/types'
+import type { ApplicationMetrics, LoginStatus } from '../../shared/types'
 
 export type Capability =
   | 'checkLogin'
@@ -16,5 +16,5 @@ export interface Adapter {
   kind: 'session' | 'api'
   capabilities: Set<Capability>
   checkLogin?(): Promise<LoginStatus>
-  appliedCount?(): Promise<number>
+  appliedCount?(): Promise<ApplicationMetrics>
 }

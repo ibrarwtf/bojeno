@@ -8,8 +8,10 @@ const platformLabel: Record<Platform, string> = {
   naukri: 'Naukri'
 }
 
-// Only LinkedIn has the fetchAppliedCount capability wired so far (#5 adds Naukri).
-const platformsWithAppliedCount: Platform[] = ['linkedin']
+const metricLabel: Record<string, string> = {
+  applied: 'Applied',
+  recruiter_actions: 'Recruiter actions'
+}
 
 type Status = LoginStatus | { platform: Platform; loggedIn: undefined; checkedAt: undefined }
 
@@ -94,22 +96,19 @@ export function Dashboard(): React.JSX.Element {
                 <button onClick={() => logInNow(platform)}>Log in now</button>
               </div>
             )}
-            {platformsWithAppliedCount.includes(platform) && (
-              <div className="applied-count">
-                <button
-                  onClick={() => void fetchCount(platform)}
-                  disabled={fetchingCount[platform]}
-                >
-                  {fetchingCount[platform] ? 'Fetching…' : 'Fetch applied count'}
-                </button>
-                {countResult?.outcome === 'success' && (
-                  <p>
-                    Applied: <strong>{countResult.count}</strong>
+            <div className="applied-count">
+              <button onClick={() => void fetchCount(platform)} disabled={fetchingCount[platform]}>
+                {fetchingCount[platform] ? 'Fetching…' : 'Fetch applied count'}
+              </button>
+              {countResult?.outcome === 'success' &&
+                countResult.metrics &&
+                Object.entries(countResult.metrics).map(([metric, count]) => (
+                  <p key={metric}>
+                    {metricLabel[metric] ?? metric}: <strong>{count}</strong>
                   </p>
-                )}
-                {countResult?.outcome === 'failed' && <p className="status-error">Fetch failed</p>}
-              </div>
-            )}
+                ))}
+              {countResult?.outcome === 'failed' && <p className="status-error">Fetch failed</p>}
+            </div>
           </div>
         )
       })}
