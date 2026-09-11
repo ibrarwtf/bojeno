@@ -32,3 +32,20 @@ export interface AppliedCountPoint {
   count: number
   fetchedAt: string
 }
+
+/** A single scraped job row, before platform/capturedAt are attached by the engine. */
+export interface ScrapedJob {
+  externalJobId: string
+  title: string
+  company: string
+  location: string
+  appliedAt: string
+  appliedRelative: string
+  jobUrl: string
+}
+
+export interface FetchRecentAppliedJobsResult {
+  outcome: RunOutcome
+  platform: Platform
+  jobsFound?: number
+}
