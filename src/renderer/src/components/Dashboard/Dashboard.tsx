@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Sidebar, type ActiveView } from '../Sidebar/Sidebar'
-import { StatusBar } from '../StatusBar/StatusBar'
+import { AccountHeader } from '../LinkedIn/AccountHeader'
 import { UrlBar } from '../UrlBar/UrlBar'
 import { LogPanel } from '../LogPanel/LogPanel'
 import { Home } from '../Home/Home'
@@ -20,11 +20,10 @@ export function Dashboard(): React.JSX.Element {
   return (
     <>
       <Sidebar activeView={activeView} onSelectView={selectView} />
-      {activeView === 'home' ? (
-        <Home />
-      ) : (
+      {activeView === 'home' && <Home />}
+      {activeView === 'linkedin' && (
         <>
-          <StatusBar platform={activeView} />
+          <AccountHeader />
           <UrlBar />
           <LogPanel />
         </>
