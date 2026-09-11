@@ -12,14 +12,22 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "devcheck": "node scripts/devcheck.cjs",
+    "dev:clean": "node scripts/dev-restart.cjs",
+    "dev:restart": "npm run dev:clean && npm run dev",
     "start": "electron-vite preview",
     "dev": "electron-vite dev --watch",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
+    "prepare": "simple-git-hooks",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm run check"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -44,6 +52,7 @@
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "simple-git-hooks": "^2.14.0",
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
     "vitest": "^5.0.0"
