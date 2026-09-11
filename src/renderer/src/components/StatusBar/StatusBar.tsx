@@ -60,8 +60,9 @@ export function StatusBar({ platform }: { platform: Platform }): React.JSX.Eleme
           {placeholderLinkedinStats.map((stat) => (
             <div key={stat.label} className="status-bar-stat">
               <span className="status-bar-stat-label">{stat.label}</span>
-              <span className="status-bar-stat-value">{stat.value}</span>
-              <span className="status-bar-stat-unit">{stat.unit}</span>
+              <span className="status-bar-stat-value">
+                {stat.value} <span className="status-bar-stat-unit">{stat.unit}</span>
+              </span>
             </div>
           ))}
         </div>
