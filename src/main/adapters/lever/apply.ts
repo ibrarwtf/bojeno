@@ -1,8 +1,16 @@
 /**
- * Opens a real Lever apply page in a visible window, fills what it safely
- * can via Playwright (domFill.ts), and hands off - it never submits.
- * Checkboxes, radio groups, the hCaptcha widget, and the Submit button are
- * always left for the user to finish in that same window.
+ * Fills a Lever apply page via Playwright (domFill.ts) and hands off - it
+ * never submits. Checkboxes, radio groups, the hCaptcha widget, and the
+ * Submit button are always left for the user to finish.
+ *
+ * Deliberately never imports window.ts/electron directly - same pattern as
+ * linkedin/naukri's adapters: the caller (ipc/handlers/ats.ts) is
+ * responsible for showLeverTab()-ing the docked pane to the apply URL
+ * before invoking this, exactly like linkedin.ts's handlers call
+ * ensurePlatformViewLoaded() before their adapter/engine calls. Keeping
+ * Electron out of this module's import graph is also what keeps it
+ * testable under plain vitest (an 'electron' import here broke
+ * adapter.test.ts's otherwise-pure module graph).
  *
  * Owns its complete orchestration (blacklist check, run_logs,
  * apply_attempts, action_budget) rather than routing through
@@ -11,7 +19,6 @@
  * See the per-platform-independence memory: only the DB, the log/status
  * UI, and the global answer bank (config/answerBank.ts) are shared.
  */
-import { BrowserWindow } from 'electron'
 import { getDb } from '../../db'
 import { getMode } from '../../modes'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
@@ -23,7 +30,7 @@ import type { ApplyResult } from '../../../shared/types'
 import { loadAnswerBank } from '../../config/answerBank'
 import { fillLeverForm } from './domFill'
 
-function applyUrlFor(jobUrl: string): string {
+export function applyUrlFor(jobUrl: string): string {
   return `${jobUrl.replace(/\/+$/, '')}/apply`
 }
 
@@ -37,14 +44,6 @@ async function attemptApply(jobUrl: string): Promise<ApplyResult> {
   }
 
   const applyUrl = applyUrlFor(jobUrl)
-  const win = new BrowserWindow({
-    width: 900,
-    height: 1000,
-    title: 'Bojeno — Lever Apply',
-    autoHideMenuBar: true
-  })
-  win.loadURL(applyUrl)
-
   const page = await findPageByUrlPart(applyUrl)
   await page.waitForSelector('input[name="name"]', { timeout: 15000 }).catch(() => {})
 

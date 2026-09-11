@@ -16,7 +16,7 @@ export interface LoginStatus {
 }
 
 export interface ActiveTabUrl {
-  platform: Platform
+  platform: Source
   url: string
 }
 
