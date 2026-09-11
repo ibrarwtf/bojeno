@@ -102,7 +102,7 @@ export function Dashboard(): React.JSX.Element {
 
   return (
     <div className="dashboard">
-      <h2>Bojeno</h2>
+      <h2>⍢ Bojeno</h2>
       {platforms.map((platform) => {
         const status = statuses[platform]
         const countResult = appliedCounts[platform]
