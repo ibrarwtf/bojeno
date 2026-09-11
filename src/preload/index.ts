@@ -1,7 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels, type ActivateTabArgs } from '../shared/ipc-contract'
-import type { ActiveTabUrl, FetchAppliedCountResult, LoginStatus, Platform } from '../shared/types'
+import type {
+  ActiveTabUrl,
+  AppliedCountPoint,
+  FetchAppliedCountResult,
+  LoginStatus,
+  Platform
+} from '../shared/types'
 
 const bojenoApi = {
   checkLogin: (platform: Platform): Promise<LoginStatus> => {
@@ -24,7 +30,9 @@ const bojenoApi = {
     const listener = (_event: Electron.IpcRendererEvent, data: ActiveTabUrl): void => callback(data)
     ipcRenderer.on(IpcChannels.platformActiveTabUrlChanged, listener)
     return () => ipcRenderer.removeListener(IpcChannels.platformActiveTabUrlChanged, listener)
-  }
+  },
+  getAppliedCountHistory: (): Promise<AppliedCountPoint[]> =>
+    ipcRenderer.invoke(IpcChannels.trackerGetAppliedCountHistory)
 }
 
 if (process.contextIsolated) {

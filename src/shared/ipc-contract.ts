@@ -1,4 +1,10 @@
-import type { ActiveTabUrl, FetchAppliedCountResult, LoginStatus, Platform } from './types'
+import type {
+  ActiveTabUrl,
+  AppliedCountPoint,
+  FetchAppliedCountResult,
+  LoginStatus,
+  Platform
+} from './types'
 
 export const IpcChannels = {
   linkedinCheckLogin: 'linkedin:checkLogin',
@@ -7,6 +13,7 @@ export const IpcChannels = {
   naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
   platformActivateTab: 'platform:activateTab',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
+  trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -40,5 +47,9 @@ export interface IpcContract {
   [IpcChannels.platformGetActiveTabUrl]: {
     args: []
     return: ActiveTabUrl
+  }
+  [IpcChannels.trackerGetAppliedCountHistory]: {
+    args: []
+    return: AppliedCountPoint[]
   }
 }

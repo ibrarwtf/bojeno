@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FetchAppliedCountResult, LoginStatus, Platform } from '../../../../shared/types'
+import { Tracker } from '../Tracker/Tracker'
 
 const platforms: Platform[] = ['linkedin', 'naukri']
 
@@ -35,6 +36,7 @@ export function Dashboard(): React.JSX.Element {
     linkedin: false,
     naukri: false
   })
+  const [trackerRefreshKey, setTrackerRefreshKey] = useState(0)
 
   async function checkPlatform(platform: Platform): Promise<void> {
     setChecking((prev) => ({ ...prev, [platform]: true }))
@@ -66,6 +68,9 @@ export function Dashboard(): React.JSX.Element {
           ...prev,
           [platform]: { platform, loggedIn: false, checkedAt: new Date().toISOString() }
         }))
+      }
+      if (result.outcome === 'success') {
+        setTrackerRefreshKey((key) => key + 1)
       }
     } finally {
       setFetchingCount((prev) => ({ ...prev, [platform]: false }))
@@ -112,6 +117,7 @@ export function Dashboard(): React.JSX.Element {
           </div>
         )
       })}
+      <Tracker refreshKey={trackerRefreshKey} />
     </div>
   )
 }
