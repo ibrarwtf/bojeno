@@ -5,7 +5,8 @@ import type {
   FetchRecentAppliedJobsResult,
   JobDetails,
   LoginStatus,
-  Platform
+  Platform,
+  ScannedJobCard
 } from './types'
 
 export const IpcChannels = {
@@ -13,6 +14,7 @@ export const IpcChannels = {
   linkedinFetchAppliedCount: 'linkedin:fetchAppliedCount',
   linkedinFetchRecentAppliedJobs: 'linkedin:fetchRecentAppliedJobs',
   linkedinCaptureJobDetails: 'linkedin:captureJobDetails',
+  linkedinScanJobs: 'linkedin:scanJobs',
   naukriCheckLogin: 'naukri:checkLogin',
   naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
   platformActivateTab: 'platform:activateTab',
@@ -25,6 +27,11 @@ export const IpcChannels = {
 export interface ActivateTabArgs {
   platform: Platform
   navigateToLogin?: boolean
+}
+
+export interface ScanJobsArgs {
+  keywords?: string
+  location?: string
 }
 
 export interface IpcContract {
@@ -63,5 +70,9 @@ export interface IpcContract {
   [IpcChannels.linkedinCaptureJobDetails]: {
     args: [string]
     return: JobDetails
+  }
+  [IpcChannels.linkedinScanJobs]: {
+    args: [ScanJobsArgs]
+    return: ScannedJobCard[]
   }
 }

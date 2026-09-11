@@ -1,10 +1,17 @@
-import type { ApplicationMetrics, JobDetails, LoginStatus, ScrapedJob } from '../../shared/types'
+import type {
+  ApplicationMetrics,
+  JobDetails,
+  LoginStatus,
+  ScannedJobCard,
+  ScrapedJob
+} from '../../shared/types'
 
 export type Capability =
   | 'checkLogin'
   | 'appliedCount'
   | 'recentAppliedJobs'
   | 'captureJobDetails'
+  | 'scanJobs'
   | 'discover'
   | 'apply'
   | 'findCompany'
@@ -21,4 +28,5 @@ export interface Adapter {
   appliedCount?(): Promise<ApplicationMetrics>
   recentAppliedJobs?(): Promise<ScrapedJob[]>
   captureJobDetails?(jobUrl: string): Promise<JobDetails>
+  scanJobs?(params: { keywords?: string; location?: string }): Promise<ScannedJobCard[]>
 }

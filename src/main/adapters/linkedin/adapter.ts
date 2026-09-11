@@ -1,5 +1,11 @@
 import type { Adapter } from '../types'
-import type { ApplicationMetrics, JobDetails, LoginStatus, ScrapedJob } from '../../../shared/types'
+import type {
+  ApplicationMetrics,
+  JobDetails,
+  LoginStatus,
+  ScannedJobCard,
+  ScrapedJob
+} from '../../../shared/types'
 import { findPageByUrlPart, gotoWithRetry, waitForPathname } from '../../cdp'
 import { linkedinSelectors } from './selectors'
 import { parseAppliedRelativeText, isWithinPast24Hours } from './relativeTime'
@@ -12,6 +18,7 @@ import {
   extractBetween,
   nextHeadingAfter
 } from './jobDetails'
+import { buildSearchUrl, parseCardFromLeaves } from './scan'
 
 // Fallback only for when the heading-based boundary (see nextHeadingAfter)
 // can't be found - confirmed live that a plain to-end-of-text slice runs
@@ -179,12 +186,60 @@ async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
   }
 }
 
+/**
+ * Ported from afterq/tools/find-easy-apply-jobs.mjs's extractCardsClassic -
+ * walks each card's leaf text nodes in-page (structural, not string-split,
+ * since badge counts vary per card but leaf order doesn't), then hands the
+ * raw leaves to the pure, unit-tested parseCardFromLeaves for the actual
+ * field extraction.
+ */
+async function scanJobs(params: {
+  keywords?: string
+  location?: string
+}): Promise<ScannedJobCard[]> {
+  const page = await findPageByUrlPart('linkedin.com')
+  await gotoWithRetry(page, buildSearchUrl(params), { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+
+  for (let i = 0; i < 5; i++) {
+    await page.mouse.wheel(0, 1800)
+    await page.waitForTimeout(700)
+  }
+
+  const rawCards = await page.evaluate(() => {
+    const cards = document.querySelectorAll('li[data-occludable-job-id]')
+    const out: { id: string; leaves: string[] }[] = []
+    for (const card of cards) {
+      const id = card.getAttribute('data-occludable-job-id')
+      if (!id) continue
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT)
+      const leaves: string[] = []
+      let el = walker.nextNode() as Element | null
+      while (el) {
+        if (el.children.length === 0 && el.textContent?.trim()) leaves.push(el.textContent.trim())
+        el = walker.nextNode() as Element | null
+      }
+      if (leaves.length) out.push({ id, leaves })
+    }
+    return out
+  })
+
+  return rawCards.map(({ id, leaves }) => parseCardFromLeaves(id, leaves))
+}
+
 export const linkedinAdapter: Adapter = {
   id: 'linkedin',
   kind: 'session',
-  capabilities: new Set(['checkLogin', 'appliedCount', 'recentAppliedJobs', 'captureJobDetails']),
+  capabilities: new Set([
+    'checkLogin',
+    'appliedCount',
+    'recentAppliedJobs',
+    'captureJobDetails',
+    'scanJobs'
+  ]),
   checkLogin,
   appliedCount,
   recentAppliedJobs,
-  captureJobDetails
+  captureJobDetails,
+  scanJobs
 }
