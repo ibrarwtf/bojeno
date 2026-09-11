@@ -62,6 +62,13 @@ export interface ScannedJobCard {
   parseWarning: boolean
 }
 
+/** Result of one attemptToApply pass through an Easy Apply modal. */
+export interface ApplyResult {
+  outcome: 'applied' | 'dry_run_ok' | 'needs_review' | 'skipped' | 'error'
+  reason?: string
+  header?: string
+}
+
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
 export interface JobDetails {
   jobUrl: string

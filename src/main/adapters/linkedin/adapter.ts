@@ -1,6 +1,7 @@
 import type { Adapter } from '../types'
 import type {
   ApplicationMetrics,
+  ApplyResult,
   JobDetails,
   LoginStatus,
   ScannedJobCard,
@@ -19,6 +20,9 @@ import {
   nextHeadingAfter
 } from './jobDetails'
 import { buildSearchUrl, parseCardFromLeaves } from './scan'
+import { buildApplyUrl, stepThroughModal } from './apply'
+import { buildRules } from './applyRules'
+import { loadAnswerBank } from './answers'
 
 // Fallback only for when the heading-based boundary (see nextHeadingAfter)
 // can't be found - confirmed live that a plain to-end-of-text slice runs
@@ -227,6 +231,30 @@ async function scanJobs(params: {
   return rawCards.map(({ id, leaves }) => parseCardFromLeaves(id, leaves))
 }
 
+/**
+ * Ported from afterq/tools/apply-easy-apply.mjs's attemptApply, minus its
+ * queue/eligibility/batching layer (see apply.ts) - navigates to the job's
+ * apply URL (which auto-opens the Easy Apply modal), builds field-matching
+ * rules from the JD text plus a locally loaded AnswerBank (never committed
+ * - see answers.ts), and steps through the modal. dryRun defaults to true;
+ * the caller must explicitly pass false to actually submit.
+ */
+async function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {
+  const page = await findPageByUrlPart('linkedin.com')
+  await gotoWithRetry(page, buildApplyUrl(jobId), { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+
+  const jdText = await page
+    .locator('main')
+    .innerText()
+    .catch(() => '')
+
+  const answers = loadAnswerBank()
+  const rules = buildRules(answers, jdText)
+
+  return stepThroughModal(page, rules, dryRun)
+}
+
 export const linkedinAdapter: Adapter = {
   id: 'linkedin',
   kind: 'session',
@@ -235,11 +263,13 @@ export const linkedinAdapter: Adapter = {
     'appliedCount',
     'recentAppliedJobs',
     'captureJobDetails',
-    'scanJobs'
+    'scanJobs',
+    'apply'
   ]),
   checkLogin,
   appliedCount,
   recentAppliedJobs,
   captureJobDetails,
-  scanJobs
+  scanJobs,
+  applyToJob
 }

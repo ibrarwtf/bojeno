@@ -50,4 +50,13 @@ export function registerLinkedinHandlers(): void {
       return adapter.scanJobs(params)
     })
   )
+
+  ipcMain.handle(IpcChannels.linkedinApplyToJob, (_event, jobId: string, dryRun: boolean) =>
+    withLock('linkedin', () => {
+      ensurePlatformViewLoaded('linkedin')
+      const adapter = getAdapter('linkedin')
+      if (!adapter.applyToJob) throw new Error('linkedin adapter has no applyToJob capability')
+      return adapter.applyToJob(jobId, dryRun)
+    })
+  )
 }

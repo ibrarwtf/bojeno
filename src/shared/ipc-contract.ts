@@ -1,6 +1,7 @@
 import type {
   ActiveTabUrl,
   AppliedCountPoint,
+  ApplyResult,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
@@ -15,6 +16,7 @@ export const IpcChannels = {
   linkedinFetchRecentAppliedJobs: 'linkedin:fetchRecentAppliedJobs',
   linkedinCaptureJobDetails: 'linkedin:captureJobDetails',
   linkedinScanJobs: 'linkedin:scanJobs',
+  linkedinApplyToJob: 'linkedin:applyToJob',
   naukriCheckLogin: 'naukri:checkLogin',
   naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
   platformActivateTab: 'platform:activateTab',
@@ -74,5 +76,9 @@ export interface IpcContract {
   [IpcChannels.linkedinScanJobs]: {
     args: [ScanJobsArgs]
     return: ScannedJobCard[]
+  }
+  [IpcChannels.linkedinApplyToJob]: {
+    args: [string, boolean]
+    return: ApplyResult
   }
 }

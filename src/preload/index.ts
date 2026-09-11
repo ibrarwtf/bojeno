@@ -4,6 +4,7 @@ import { IpcChannels, type ActivateTabArgs, type ScanJobsArgs } from '../shared/
 import type {
   ActiveTabUrl,
   AppliedCountPoint,
+  ApplyResult,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
@@ -45,7 +46,9 @@ const bojenoApi = {
   captureJobDetails: (jobUrl: string): Promise<JobDetails> =>
     ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl),
   scanJobs: (params: ScanJobsArgs): Promise<ScannedJobCard[]> =>
-    ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params)
+    ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
+  applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
+    ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun)
 }
 
 if (process.contextIsolated) {
