@@ -82,7 +82,7 @@ async function recentAppliedJobs(): Promise<ScrapedJob[]> {
         break
       }
       seen.add(row.externalJobId)
-      const [company, location] = row.companyLocation.split('·').map((part) => part.trim())
+      const [company, location] = row.companyLocation.split(/[·•]/).map((part) => part.trim())
       results.push({
         externalJobId: row.externalJobId,
         title: row.title,

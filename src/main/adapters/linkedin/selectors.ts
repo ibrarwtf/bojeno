@@ -23,6 +23,9 @@ export const linkedinSelectors = {
    * inspecting the real logged-in page — no stable classes on any of them,
    * but the structural order holds. Pagination uses a real stable
    * data-testid (not a hashed class), unlike everything else on this page.
+   * The separator in the second <p> isn't always the same character —
+   * live capture caught a row using "•" instead of "·" — so the parser
+   * splits on either.
    */
   appliedJobRowLink: 'a[href*="/jobs/view/"]',
   paginationNextButton: '[data-testid="pagination-controls-next-button-visible"]'
