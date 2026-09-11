@@ -3,6 +3,7 @@ import type {
   AppliedCountPoint,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
+  JobDetails,
   LoginStatus,
   Platform
 } from './types'
@@ -11,6 +12,7 @@ export const IpcChannels = {
   linkedinCheckLogin: 'linkedin:checkLogin',
   linkedinFetchAppliedCount: 'linkedin:fetchAppliedCount',
   linkedinFetchRecentAppliedJobs: 'linkedin:fetchRecentAppliedJobs',
+  linkedinCaptureJobDetails: 'linkedin:captureJobDetails',
   naukriCheckLogin: 'naukri:checkLogin',
   naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
   platformActivateTab: 'platform:activateTab',
@@ -57,5 +59,9 @@ export interface IpcContract {
   [IpcChannels.trackerGetAppliedCountHistory]: {
     args: []
     return: AppliedCountPoint[]
+  }
+  [IpcChannels.linkedinCaptureJobDetails]: {
+    args: [string]
+    return: JobDetails
   }
 }

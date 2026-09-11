@@ -1,8 +1,23 @@
 import type { Adapter } from '../types'
-import type { ApplicationMetrics, LoginStatus, ScrapedJob } from '../../../shared/types'
+import type { ApplicationMetrics, JobDetails, LoginStatus, ScrapedJob } from '../../../shared/types'
 import { findPageByUrlPart, gotoWithRetry, waitForPathname } from '../../cdp'
 import { linkedinSelectors } from './selectors'
 import { parseAppliedRelativeText, isWithinPast24Hours } from './relativeTime'
+import {
+  parseYearsRequired,
+  parseApplicantCount,
+  parsePostedRelative,
+  parseClickedApplyCount,
+  hasFitSignal,
+  extractBetween,
+  nextHeadingAfter
+} from './jobDetails'
+
+// Fallback only for when the heading-based boundary (see nextHeadingAfter)
+// can't be found - confirmed live that a plain to-end-of-text slice runs
+// straight through this recommendation rail, the footer, and the language
+// picker along with whatever section it was actually after.
+const SECTION_STOP_MARKERS = ['More jobs', 'See more jobs like this']
 
 async function checkLogin(): Promise<LoginStatus> {
   const page = await findPageByUrlPart('linkedin.com')
@@ -105,11 +120,71 @@ async function recentAppliedJobs(): Promise<ScrapedJob[]> {
   return results
 }
 
+/**
+ * Extracts everything via plain-text regex over `main`'s innerText rather
+ * than selectors - see jobDetails.ts for why (class names on this page
+ * proved unstable within a single live session, both on this project's own
+ * earlier capture and independently in github.com/joeyism/linkedin_scraper's
+ * job.py, which falls back to the same kind of plain-text scan for exactly
+ * this reason). Company comes from `a[href*="/company/"]` instead of a text
+ * heuristic - also independently confirmed by that same project - since an
+ * attribute-substring match on a real href holds up better than assuming a
+ * fixed line position in the page's text.
+ */
+async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
+  const page = await findPageByUrlPart('linkedin.com')
+  await gotoWithRetry(page, jobUrl, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+
+  const { text, company, headings } = await page.evaluate(() => ({
+    text: (document.querySelector('main') as HTMLElement | null)?.innerText ?? '',
+    company:
+      Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="/company/"]'))
+        .map((a) => a.textContent?.trim() ?? '')
+        .find((value) => value.length > 1) ?? '',
+    headings: Array.from(document.querySelectorAll('h2, h3'))
+      .map((el) => el.textContent?.trim() ?? '')
+      .filter(Boolean)
+  }))
+
+  const [firstLine = '', secondLine = ''] = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const title = company && firstLine === company ? secondLine : firstLine
+
+  const descriptionStop = nextHeadingAfter(headings, 'About the job')
+  const insightsStop = nextHeadingAfter(headings, 'Candidates who clicked apply')
+
+  return {
+    jobUrl,
+    company: company || firstLine,
+    title,
+    postedRelative: parsePostedRelative(text),
+    clickedApplyCount: parseClickedApplyCount(text),
+    applicantCount: parseApplicantCount(text),
+    hasFitSignal: hasFitSignal(text),
+    yearsRequired: parseYearsRequired(text),
+    descriptionText:
+      extractBetween(
+        text,
+        'About the job',
+        descriptionStop ? [descriptionStop] : SECTION_STOP_MARKERS
+      ) ?? '',
+    applicantInsightsText: extractBetween(
+      text,
+      'Candidates who clicked apply',
+      insightsStop ? [insightsStop] : SECTION_STOP_MARKERS
+    )
+  }
+}
+
 export const linkedinAdapter: Adapter = {
   id: 'linkedin',
   kind: 'session',
-  capabilities: new Set(['checkLogin', 'appliedCount', 'recentAppliedJobs']),
+  capabilities: new Set(['checkLogin', 'appliedCount', 'recentAppliedJobs', 'captureJobDetails']),
   checkLogin,
   appliedCount,
-  recentAppliedJobs
+  recentAppliedJobs,
+  captureJobDetails
 }
