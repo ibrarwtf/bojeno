@@ -7,12 +7,20 @@ async function checkLogin(): Promise<LoginStatus> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, linkedinSelectors.loginCheckUrl, { waitUntil: 'commit' })
 
-  const loggedIn = await page
-    .waitForSelector(linkedinSelectors.loggedInIndicator, { timeout: 4000 })
+  const redirectedAwayFromFeed = await page
+    .waitForFunction(
+      (path) => !window.location.pathname.startsWith(path),
+      linkedinSelectors.loginCheckPath,
+      { timeout: 4000 }
+    )
     .then(() => true)
     .catch(() => false)
 
-  return { platform: 'linkedin', loggedIn, checkedAt: new Date().toISOString() }
+  return {
+    platform: 'linkedin',
+    loggedIn: !redirectedAwayFromFeed,
+    checkedAt: new Date().toISOString()
+  }
 }
 
 export const linkedinAdapter: Adapter = {
