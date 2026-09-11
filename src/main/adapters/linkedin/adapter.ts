@@ -23,9 +23,21 @@ async function checkLogin(): Promise<LoginStatus> {
   }
 }
 
+async function appliedCount(): Promise<number> {
+  const page = await findPageByUrlPart('linkedin.com')
+  await gotoWithRetry(page, linkedinSelectors.appliedCountUrl, { waitUntil: 'commit' })
+
+  const label = page.locator('label', { hasText: linkedinSelectors.appliedTabLabelPattern }).first()
+  const text = await label.innerText({ timeout: 6000 })
+  const match = text.match(/([\d,]+)\s*$/)
+  if (!match) throw new Error(`Could not parse applied count from "${text}"`)
+  return Number(match[1].replace(/,/g, ''))
+}
+
 export const linkedinAdapter: Adapter = {
   id: 'linkedin',
   kind: 'session',
-  capabilities: new Set(['checkLogin']),
-  checkLogin
+  capabilities: new Set(['checkLogin', 'appliedCount']),
+  checkLogin,
+  appliedCount
 }

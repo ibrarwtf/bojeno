@@ -1,13 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels, type ActivateTabArgs } from '../shared/ipc-contract'
-import type { ActiveTabUrl, LoginStatus, Platform } from '../shared/types'
+import type { ActiveTabUrl, FetchAppliedCountResult, LoginStatus, Platform } from '../shared/types'
 
 const bojenoApi = {
   checkLogin: (platform: Platform): Promise<LoginStatus> => {
     const channel =
       platform === 'linkedin' ? IpcChannels.linkedinCheckLogin : IpcChannels.naukriCheckLogin
     return ipcRenderer.invoke(channel)
+  },
+  fetchAppliedCount: (platform: Platform): Promise<FetchAppliedCountResult> => {
+    if (platform !== 'linkedin') {
+      // Naukri's counterpart channel doesn't exist yet — lands with its own issue.
+      return Promise.reject(new Error(`fetchAppliedCount is not yet implemented for ${platform}`))
+    }
+    return ipcRenderer.invoke(IpcChannels.linkedinFetchAppliedCount)
   },
   activateTab: (args: ActivateTabArgs): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.platformActivateTab, args),

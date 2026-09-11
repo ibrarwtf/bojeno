@@ -16,4 +16,5 @@ export interface Adapter {
   kind: 'session' | 'api'
   capabilities: Set<Capability>
   checkLogin?(): Promise<LoginStatus>
+  appliedCount?(): Promise<number>
 }

@@ -1,7 +1,8 @@
-import type { ActiveTabUrl, LoginStatus, Platform } from './types'
+import type { ActiveTabUrl, FetchAppliedCountResult, LoginStatus, Platform } from './types'
 
 export const IpcChannels = {
   linkedinCheckLogin: 'linkedin:checkLogin',
+  linkedinFetchAppliedCount: 'linkedin:fetchAppliedCount',
   naukriCheckLogin: 'naukri:checkLogin',
   platformActivateTab: 'platform:activateTab',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
@@ -18,6 +19,10 @@ export interface IpcContract {
   [IpcChannels.linkedinCheckLogin]: {
     args: []
     return: LoginStatus
+  }
+  [IpcChannels.linkedinFetchAppliedCount]: {
+    args: []
+    return: FetchAppliedCountResult
   }
   [IpcChannels.naukriCheckLogin]: {
     args: []
