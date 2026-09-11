@@ -71,3 +71,10 @@ export function createSavedSearch(
 export function deleteSavedSearch(db: DatabaseSync, id: number): void {
   db.prepare('DELETE FROM linkedin_saved_searches WHERE id = ?').run(id)
 }
+
+export function touchSavedSearchLastRun(db: DatabaseSync, id: number): void {
+  db.prepare('UPDATE linkedin_saved_searches SET last_run_at = ? WHERE id = ?').run(
+    new Date().toISOString(),
+    id
+  )
+}

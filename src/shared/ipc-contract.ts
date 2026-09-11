@@ -22,6 +22,7 @@ export const IpcChannels = {
   linkedinSavedSearchesList: 'linkedin:savedSearches:list',
   linkedinSavedSearchesCreate: 'linkedin:savedSearches:create',
   linkedinSavedSearchesDelete: 'linkedin:savedSearches:delete',
+  linkedinSavedSearchesTouchRun: 'linkedin:savedSearches:touchRun',
   naukriCheckLogin: 'naukri:checkLogin',
   platformActivateTab: 'platform:activateTab',
   platformShowHome: 'platform:showHome',
@@ -110,6 +111,10 @@ export interface IpcContract {
     return: LinkedinSavedSearch
   }
   [IpcChannels.linkedinSavedSearchesDelete]: {
+    args: [number]
+    return: void
+  }
+  [IpcChannels.linkedinSavedSearchesTouchRun]: {
     args: [number]
     return: void
   }

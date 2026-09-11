@@ -62,7 +62,9 @@ const bojenoApi = {
   createSavedSearch: (args: CreateSavedSearchArgs): Promise<LinkedinSavedSearch> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesCreate, args),
   deleteSavedSearch: (id: number): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesDelete, id)
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesDelete, id),
+  touchSavedSearchLastRun: (id: number): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesTouchRun, id)
 }
 
 if (process.contextIsolated) {

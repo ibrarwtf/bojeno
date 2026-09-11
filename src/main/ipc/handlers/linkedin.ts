@@ -13,7 +13,8 @@ import { isCompanyBlacklisted } from '../../db/queries/companyBlacklist'
 import {
   listSavedSearches,
   createSavedSearch,
-  deleteSavedSearch
+  deleteSavedSearch,
+  touchSavedSearchLastRun
 } from '../../db/queries/linkedinSavedSearches'
 import {
   checkLogin,
@@ -241,5 +242,8 @@ export function registerLinkedinHandlers(): void {
   )
   ipcMain.handle(IpcChannels.linkedinSavedSearchesDelete, (_event, id: number) =>
     deleteSavedSearch(getDb(), id)
+  )
+  ipcMain.handle(IpcChannels.linkedinSavedSearchesTouchRun, (_event, id: number) =>
+    touchSavedSearchLastRun(getDb(), id)
   )
 }

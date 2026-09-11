@@ -25,6 +25,7 @@ export function SavedSearches({
   const [name, setName] = useState('')
   const [keywords, setKeywords] = useState('')
   const [location, setLocation] = useState('')
+  const [runningId, setRunningId] = useState<number | undefined>()
 
   useEffect(() => {
     void refresh()
@@ -52,6 +53,26 @@ export function SavedSearches({
   async function remove(id: number): Promise<void> {
     await window.bojeno.deleteSavedSearch(id)
     await refresh()
+  }
+
+  // Runs a plain scan (no apply) against the search's own params, then marks it run.
+  // Standing in for the real Auto Apply flow (Run/Schedule, dry-run vs. live) that's
+  // a later phase - this just proves the saved params actually drive a LinkedIn
+  // search today.
+  async function run(search: LinkedinSavedSearch): Promise<void> {
+    setRunningId(search.id)
+    try {
+      await window.bojeno.scanJobs({
+        keywords: search.keywords ?? undefined,
+        location: search.location ?? undefined,
+        sortByRecent: search.sortByRecent,
+        easyApplyOnly: search.easyApplyOnly
+      })
+      await window.bojeno.touchSavedSearchLastRun(search.id)
+      await refresh()
+    } finally {
+      setRunningId(undefined)
+    }
   }
 
   return (
@@ -103,16 +124,29 @@ export function SavedSearches({
                 LinkedIn{search.location ? ` · ${search.location}` : ''} ·{' '}
                 {relativeTime(search.lastRunAt)}
               </div>
-              <button
-                className="linkedin-saved-searches-item-remove"
-                title="Delete"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void remove(search.id)
-                }}
-              >
-                ×
-              </button>
+              <div className="linkedin-saved-searches-item-actions">
+                <button
+                  className="linkedin-saved-searches-item-run"
+                  title="Run"
+                  disabled={runningId !== undefined}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void run(search)
+                  }}
+                >
+                  {runningId === search.id ? '…' : '▶'}
+                </button>
+                <button
+                  className="linkedin-saved-searches-item-remove"
+                  title="Delete"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void remove(search.id)
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
           ))
         )}

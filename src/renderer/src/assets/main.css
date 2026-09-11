@@ -325,7 +325,7 @@ body {
 
 .linkedin-saved-searches-item {
   position: relative;
-  padding: 10px 30px 10px 10px;
+  padding: 10px 56px 10px 10px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -343,10 +343,29 @@ body {
   color: var(--ev-c-text-2);
 }
 
-.linkedin-saved-searches-item-remove {
+.linkedin-saved-searches-item-actions {
   position: absolute;
   top: 8px;
   right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.linkedin-saved-searches-item-run {
+  border: none;
+  background: none;
+  color: var(--ev-c-text-1);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.linkedin-saved-searches-item-run:disabled {
+  color: var(--ev-c-text-2);
+  cursor: default;
+}
+
+.linkedin-saved-searches-item-remove {
   border: none;
   background: none;
   color: var(--ev-c-text-2);
