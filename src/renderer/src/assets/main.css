@@ -93,11 +93,19 @@ body {
   top: 0;
   left: 260px;
   right: 0;
-  height: 56px;
+  height: 96px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--ev-c-gray-2);
+}
+
+.status-bar-top {
   display: flex;
   align-items: center;
   gap: 16px;
+  height: 44px;
+  box-sizing: border-box;
   padding: 0 16px;
   border-bottom: 1px solid var(--ev-c-gray-2);
 }
@@ -140,9 +148,39 @@ body {
   margin-left: auto;
 }
 
+.status-bar-stats {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 16px;
+}
+
+.status-bar-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-bar-stat-label {
+  font-size: 11px;
+  color: var(--ev-c-text-2);
+}
+
+.status-bar-stat-value {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.status-bar-stat-unit {
+  font-size: 11px;
+  color: var(--ev-c-text-2);
+}
+
 .url-bar {
   position: fixed;
-  top: 56px;
+  top: 96px;
   left: 260px;
   right: 0;
   height: 36px;

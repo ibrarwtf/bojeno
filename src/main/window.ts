@@ -6,7 +6,8 @@ import type { ActiveTabUrl, Platform } from '../shared/types'
 import { IpcChannels } from '../shared/ipc-contract'
 
 const LEFT_PANE_WIDTH = 260
-const STATUS_BAR_HEIGHT = 56
+// Top row (platform/login/check) + LinkedIn account-stats row.
+const STATUS_BAR_HEIGHT = 96
 const URL_BAR_HEIGHT = 36
 const LOG_PANEL_HEIGHT = 160
 

@@ -27,7 +27,7 @@ export function LogPanel(): React.JSX.Element {
   return (
     <div className="log-panel">
       <div className="log-panel-header">
-        <span>Live Logs</span>
+        <span>Live Logs (Current Run)</span>
         <button
           onClick={() => {
             setCleared(true)
