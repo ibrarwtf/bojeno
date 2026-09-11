@@ -88,7 +88,9 @@ body {
   margin-top: auto;
 }
 
-.status-bar {
+/* LinkedIn-specific account header - not shared with any future Naukri equivalent,
+   which will have its own fields/layout and its own CSS block. */
+.linkedin-account-header {
   position: fixed;
   top: 0;
   left: 260px;
@@ -100,7 +102,7 @@ body {
   border-bottom: 1px solid var(--ev-c-gray-2);
 }
 
-.status-bar-top {
+.linkedin-account-header-top {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -110,31 +112,31 @@ body {
   border-bottom: 1px solid var(--ev-c-gray-2);
 }
 
-.status-bar-platform {
+.linkedin-account-header-platform {
   font-weight: 600;
 }
 
-.status-bar-dim {
+.linkedin-account-header-dim {
   color: var(--ev-c-text-2);
   font-size: 13px;
 }
 
-.status-bar-dot {
+.linkedin-account-header-dot {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
 }
 
-.status-bar-ok {
+.linkedin-account-header-ok {
   color: #2da44e;
 }
 
-.status-bar-warn {
+.linkedin-account-header-warn {
   color: #cf222e;
 }
 
-.status-bar-link {
+.linkedin-account-header-link {
   border: none;
   background: none;
   color: inherit;
@@ -144,11 +146,11 @@ body {
   font-size: 13px;
 }
 
-.status-bar-check {
+.linkedin-account-header-check {
   margin-left: auto;
 }
 
-.status-bar-stats {
+.linkedin-account-header-stats {
   display: flex;
   align-items: center;
   gap: 28px;
@@ -157,23 +159,23 @@ body {
   padding: 0 16px;
 }
 
-.status-bar-stat {
+.linkedin-account-header-stat {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.status-bar-stat-label {
+.linkedin-account-header-stat-label {
   font-size: 11px;
   color: var(--ev-c-text-2);
 }
 
-.status-bar-stat-value {
+.linkedin-account-header-stat-value {
   font-size: 15px;
   font-weight: 600;
 }
 
-.status-bar-stat-unit {
+.linkedin-account-header-stat-unit {
   font-size: 11px;
   font-weight: 400;
   color: var(--ev-c-text-2);

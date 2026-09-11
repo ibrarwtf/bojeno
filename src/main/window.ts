@@ -6,7 +6,8 @@ import type { ActiveTabUrl, Platform } from '../shared/types'
 import { IpcChannels } from '../shared/ipc-contract'
 
 const LEFT_PANE_WIDTH = 260
-// Top row (platform/login/check) + LinkedIn account-stats row.
+// Height of the .linkedin-account-header block above the browser view. Naukri's own
+// workspace/header (when built) is expected to need its own geometry, not this one.
 const STATUS_BAR_HEIGHT = 96
 const URL_BAR_HEIGHT = 36
 const LOG_PANEL_HEIGHT = 160
