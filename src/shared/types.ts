@@ -77,6 +77,18 @@ export interface ApplyResult {
   header?: string
 }
 
+/** A saved LinkedIn search - name plus the params scanJobs already accepts. */
+export interface LinkedinSavedSearch {
+  id: number
+  name: string
+  keywords: string | null
+  location: string | null
+  sortByRecent: boolean
+  easyApplyOnly: boolean
+  createdAt: string
+  lastRunAt: string | null
+}
+
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
 export interface JobDetails {
   jobUrl: string

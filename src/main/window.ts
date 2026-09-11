@@ -5,7 +5,12 @@ import { instanceId } from './instance'
 import type { ActiveTabUrl, Platform } from '../shared/types'
 import { IpcChannels } from '../shared/ipc-contract'
 
-const LEFT_PANE_WIDTH = 260
+// Icon-only nav rail (.sidebar) + the LinkedIn Saved Searches panel beside it
+// (.linkedin-saved-searches). Naukri's own workspace, when built, may need a
+// different total - this isn't assumed to be shared geometry.
+const RAIL_WIDTH = 64
+const SAVED_SEARCHES_WIDTH = 296
+const LEFT_PANE_WIDTH = RAIL_WIDTH + SAVED_SEARCHES_WIDTH
 // Height of the .linkedin-account-header block above the browser view. Naukri's own
 // workspace/header (when built) is expected to need its own geometry, not this one.
 const STATUS_BAR_HEIGHT = 96

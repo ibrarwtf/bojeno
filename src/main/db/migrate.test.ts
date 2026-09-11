@@ -5,6 +5,7 @@ import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
 import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
+import linkedinSavedSearchesSql from './migrations/20260912T0000_linkedin_saved_searches.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
 const metricMigration: Migration = {
@@ -18,6 +19,10 @@ const applyAttemptsMigration: Migration = {
 const companyBlacklistMigration: Migration = {
   id: '20260911T2400_company_blacklist.sql',
   sql: companyBlacklistSql
+}
+const linkedinSavedSearchesMigration: Migration = {
+  id: '20260912T0000_linkedin_saved_searches.sql',
+  sql: linkedinSavedSearchesSql
 }
 
 function tableNames(db: DatabaseSync): string[] {
@@ -110,5 +115,12 @@ describe('runMigrations', () => {
     expect(rows.map((row) => row.company_name)).toEqual(
       expect.arrayContaining(['Hire Feed', 'Quik Hire Staffing'])
     )
+  })
+
+  it('creates linkedin_saved_searches', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration, linkedinSavedSearchesMigration], () => undefined)
+
+    expect(tableNames(db)).toContain('linkedin_saved_searches')
   })
 })
