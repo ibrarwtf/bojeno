@@ -12,7 +12,9 @@ Example: `feat(linkedin): #3 wrap connect.mjs through CDP bridge`
 
 **Types:** `feat | fix | chore | refactor | docs | test | perf`
 
-**Scopes** (fixed vocabulary, lowercase, one word): `linkedin | naukri | ats | tracker | engine | db | dashboard | discovery | ledger | scheduler`
+**Scopes** (fixed vocabulary, lowercase, one word): `linkedin | naukri | ats | tracker | engine | db | dashboard | discovery | ledger | scheduler | repo`
+
+`repo` is for repo-wide config/tooling changes that don't belong to one feature area (root config files, CI, editor/agent config, package.json scripts) — not a catch-all for anything that's inconvenient to scope properly.
 
 Granular WIP commits are fine during development; squash-merge to `master` keeps history readable.
 

@@ -16,7 +16,8 @@ const SCOPES = [
   'dashboard',
   'discovery',
   'ledger',
-  'scheduler'
+  'scheduler',
+  'repo'
 ]
 
 const messageFile = process.argv[2]

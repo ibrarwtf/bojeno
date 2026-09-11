@@ -31,12 +31,7 @@ npm run test
 ### Build
 
 ```bash
-# For windows
-npm run build:win
-
-# For macOS
-npm run build:mac
-
-# For Linux
-npm run build:linux
+npm run build
 ```
+
+Packaging (`electron-builder`) is deferred until v0.1 works end-to-end — see the project brief.
