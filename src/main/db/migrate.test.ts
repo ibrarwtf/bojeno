@@ -4,6 +4,8 @@ import { runMigrations, type Migration } from './migrate'
 import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
 import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
+import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
+import actionBudgetSql from './migrations/20260911T2500_action_budget.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
 const metricMigration: Migration = {
@@ -13,6 +15,14 @@ const metricMigration: Migration = {
 const applyAttemptsMigration: Migration = {
   id: '20260911T2300_apply_attempts.sql',
   sql: applyAttemptsSql
+}
+const companyBlacklistMigration: Migration = {
+  id: '20260911T2400_company_blacklist.sql',
+  sql: companyBlacklistSql
+}
+const actionBudgetMigration: Migration = {
+  id: '20260911T2500_action_budget.sql',
+  sql: actionBudgetSql
 }
 
 function tableNames(db: DatabaseSync): string[] {
@@ -93,5 +103,24 @@ describe('runMigrations', () => {
     runMigrations(db, [initMigration, applyAttemptsMigration], () => undefined)
 
     expect(tableNames(db)).toContain('apply_attempts')
+  })
+
+  it('creates company_blacklist and seeds the two known-bad companies', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration, companyBlacklistMigration], () => undefined)
+
+    const rows = db.prepare('SELECT company_name FROM company_blacklist').all() as {
+      company_name: string
+    }[]
+    expect(rows.map((row) => row.company_name)).toEqual(
+      expect.arrayContaining(['Hire Feed', 'Quik Hire Staffing'])
+    )
+  })
+
+  it('creates action_budget', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration, actionBudgetMigration], () => undefined)
+
+    expect(tableNames(db)).toContain('action_budget')
   })
 })

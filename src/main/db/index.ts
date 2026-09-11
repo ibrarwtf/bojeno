@@ -8,12 +8,16 @@ import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
 import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 import appliedJobsSql from './migrations/20260911T2200_applied_jobs.sql?raw'
 import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
+import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
+import actionBudgetSql from './migrations/20260911T2500_action_budget.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
   { id: '20260911T2100_applied_counts_metric.sql', sql: appliedCountsMetricSql },
   { id: '20260911T2200_applied_jobs.sql', sql: appliedJobsSql },
-  { id: '20260911T2300_apply_attempts.sql', sql: applyAttemptsSql }
+  { id: '20260911T2300_apply_attempts.sql', sql: applyAttemptsSql },
+  { id: '20260911T2400_company_blacklist.sql', sql: companyBlacklistSql },
+  { id: '20260911T2500_action_budget.sql', sql: actionBudgetSql }
 ]
 
 let db: DatabaseSync | undefined

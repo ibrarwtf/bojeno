@@ -3,6 +3,8 @@ import { getMode } from '../modes'
 import { getAdapter } from '../adapters/registry'
 import { insertApplyAttempt } from '../db/queries/applyAttempts'
 import { insertRunLog } from '../db/queries/runLogs'
+import { isCompanyBlacklisted } from '../db/queries/companyBlacklist'
+import { incrementActionBudget } from '../db/queries/actionBudget'
 import type { ApplyResult, Platform } from '../../shared/types'
 
 /**
@@ -40,6 +42,28 @@ export async function applyToJob(
     return { outcome: 'error', reason: 'not logged in' }
   }
 
+  // Checked before ever opening the apply modal - a blacklisted company is
+  // never attempted, never burns a shot. Costs one extra page read
+  // (captureJobDetails against the job's plain view URL) since applyToJob
+  // itself has no reason to know the company otherwise.
+  if (adapter.captureJobDetails) {
+    const jobUrl = `https://www.linkedin.com/jobs/view/${jobId}/`
+    const details = await adapter.captureJobDetails(jobUrl)
+    if (isCompanyBlacklisted(db, details.company)) {
+      const reason = `blacklisted company: ${details.company}`
+      insertRunLog(db, {
+        script,
+        outcome: 'skipped',
+        triggerType: 'manual',
+        runMode: mode,
+        duration: Date.now() - startedAt,
+        entityType: 'job',
+        entityId: jobId
+      })
+      return { outcome: 'skipped', reason }
+    }
+  }
+
   const dryRun = mode === 'live' ? requestedDryRun : true
 
   try {
@@ -56,6 +80,7 @@ export async function applyToJob(
         dryRun,
         attemptedAt
       })
+      incrementActionBudget(db, platform, 'apply')
     }
     insertRunLog(db, {
       script,
