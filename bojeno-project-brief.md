@@ -314,3 +314,15 @@ New repo, new pseudonym GitHub account, zero personal data from commit 1. Do not
 35. **Add saved filters and schedules only after the manual discovery command is dependable.** Scheduled runs must remain visible/logged and wait for kill switch and circuit-breaker work already specified in this brief. **Why:** an unreliable manual workflow becomes a harmful unattended workflow when scheduled.
 
 36. **Add LLM assistance only after deterministic commands, data shapes, and audit logs are stable.** Connect it as an optional caller of the same command/query layer, with clear provenance and no ability to bypass safety gates. **Why:** the model becomes a useful planner/assistant rather than the place where core product logic hides.
+
+## 12. Reference repos
+
+Before building a new adapter or discovery feature from scratch, check whether one of these already solved it — port/adapt rather than re-derive (see memory: prefer porting proven scripts/OSS tools over new architecture). Add to this list as new ones get consulted.
+
+| Repo | What it's useful for |
+|---|---|
+| `C:\Users\i\afterq\tools` (local, private) | The original monolithic scripts this whole project ports from — LinkedIn/Naukri automation, `providers/{lever,ashby,...}.mjs` for ATS fetch logic. First place to check for any new adapter. |
+| `C:\Users\i\afterq\career-ops` (local, private) | A more mature/structured sibling project — worth diffing against for patterns (e.g. eligibility/filter logic) before designing new Bojeno subsystems. |
+| [colophon-group/jobseek](https://github.com/colophon-group/jobseek) (`apps/crawler/src/core/monitors/lever.py` etc.) | External OSS reference for ATS monitor implementations (Lever and others) — useful for cross-checking edge cases the local scripts don't cover. |
+
+Lever adapter (#18) was built primarily from `afterq/tools/providers/lever.mjs`, already proven against real boards — jobseek wasn't needed since the local script already had the full flat-field shape (title/url/company/location/description/postedAt) with no pagination/auth complexity.

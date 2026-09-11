@@ -1,6 +1,8 @@
 import type {
   ApplicationMetrics,
   ApplyResult,
+  DiscoveredJob,
+  DiscoverParams,
   JobDetails,
   LoginStatus,
   ScannedJobCard,
@@ -31,4 +33,5 @@ export interface Adapter {
   captureJobDetails?(jobUrl: string): Promise<JobDetails>
   scanJobs?(params: { keywords?: string; location?: string }): Promise<ScannedJobCard[]>
   applyToJob?(jobId: string, dryRun?: boolean): Promise<ApplyResult>
+  discover?(params: DiscoverParams): Promise<DiscoveredJob[]>
 }
