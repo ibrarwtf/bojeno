@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import {
   IpcChannels,
   type ActivateTabArgs,
+  type AtsApplyArgs,
   type AtsDiscoverArgs,
   type ScanJobsArgs
 } from '../shared/ipc-contract'
@@ -58,7 +59,9 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
   getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
   discover: (args: AtsDiscoverArgs): Promise<DiscoverResult> =>
-    ipcRenderer.invoke(IpcChannels.atsDiscover, args)
+    ipcRenderer.invoke(IpcChannels.atsDiscover, args),
+  atsApply: (args: AtsApplyArgs): Promise<ApplyResult> =>
+    ipcRenderer.invoke(IpcChannels.atsApply, args)
 }
 
 if (process.contextIsolated) {

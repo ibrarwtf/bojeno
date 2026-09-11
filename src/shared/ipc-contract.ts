@@ -9,7 +9,8 @@ import type {
   LoginStatus,
   Platform,
   RunLogRow,
-  ScannedJobCard
+  ScannedJobCard,
+  Source
 } from './types'
 
 export const IpcChannels = {
@@ -22,6 +23,7 @@ export const IpcChannels = {
   naukriCheckLogin: 'naukri:checkLogin',
   naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
   atsDiscover: 'ats:discover',
+  atsApply: 'ats:apply',
   platformActivateTab: 'platform:activateTab',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
   trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
@@ -41,8 +43,15 @@ export interface ScanJobsArgs {
 }
 
 export interface AtsDiscoverArgs {
-  source: string
+  source: Source
   companies: string[]
+}
+
+export interface AtsApplyArgs {
+  source: Source
+  jobUrl: string
+  dryRun: boolean
+  company?: string
 }
 
 export interface IpcContract {
@@ -97,5 +106,9 @@ export interface IpcContract {
   [IpcChannels.atsDiscover]: {
     args: [AtsDiscoverArgs]
     return: DiscoverResult
+  }
+  [IpcChannels.atsApply]: {
+    args: [AtsApplyArgs]
+    return: ApplyResult
   }
 }

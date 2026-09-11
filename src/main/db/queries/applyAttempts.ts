@@ -1,8 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { ApplyResult, Platform } from '../../../shared/types'
+import type { ApplyResult, Source } from '../../../shared/types'
 
 export interface ApplyAttemptEntry {
-  platform: Platform
+  platform: Source
   externalJobId: string
   outcome: ApplyResult['outcome']
   reason?: string

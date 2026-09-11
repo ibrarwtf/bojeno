@@ -2,13 +2,20 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
- * Field names only, no values - the shape mirrors afterq/tools's
- * easy-apply-answers.yml. Real values live in .local/easy-apply-answers.json
- * (gitignored, never committed - this is the public bojeno repo) and are
- * never checked in; easy-apply-answers.example.json at the repo root is the
- * tracked template with placeholder values.
+ * The one global, cross-platform source of the owner's personal-data
+ * answers - every platform's own apply/question-matching logic reads from
+ * this, but none of them own it. Field names only, no values - the shape
+ * mirrors afterq/tools's easy-apply-answers.yml. Real values live in
+ * .local/easy-apply-answers.json (gitignored, never committed - this is the
+ * public bojeno repo) and are never checked in; easy-apply-answers.example.json
+ * at the repo root is the tracked template with placeholder values.
  */
 export interface AnswerBank {
+  full_name: string
+  email: string
+  phone: string
+  /** Absolute path to a resume file (pdf/docx) on disk, for form upload. */
+  resume_path: string
   current_ctc: number
   expected_ctc: number
   last_working_day: string
