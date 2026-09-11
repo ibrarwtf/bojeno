@@ -94,12 +94,17 @@ async function waitForStableUrl(
  * Used for login checks: navigate to a platform's root URL, then wait to see
  * whether it redirects to the logged-in area (path arrives) or stays on a
  * login/landing page (times out) — not fighting the platform's own routing,
- * just watching where it lands.
+ * just watching where it lands. Default is generous (20s, not a more typical
+ * ~5-10s) because the first checkLogin right after a cold app launch is
+ * measurably slower than a warm one — confirmed live: a real, already-logged-
+ * in session read as logged-out once at 10s. Widen further here rather than
+ * add cleverness if this recurs, per the same lesson already learned for
+ * Naukri's redirect.
  */
 export async function waitForPathname(
   page: Page,
   pathPrefix: string,
-  timeoutMs = 10000
+  timeoutMs = 20000
 ): Promise<boolean> {
   return page
     .waitForFunction((path) => window.location.pathname.startsWith(path), pathPrefix, {

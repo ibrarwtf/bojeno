@@ -3,11 +3,16 @@ import { DatabaseSync } from 'node:sqlite'
 import { runMigrations, type Migration } from './migrate'
 import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
 import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
+import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
 const metricMigration: Migration = {
   id: '20260911T2100_applied_counts_metric.sql',
   sql: appliedCountsMetricSql
+}
+const applyAttemptsMigration: Migration = {
+  id: '20260911T2300_apply_attempts.sql',
+  sql: applyAttemptsSql
 }
 
 function tableNames(db: DatabaseSync): string[] {
@@ -81,5 +86,12 @@ describe('runMigrations', () => {
 
     const row = db.prepare('SELECT metric FROM applied_counts').get() as { metric: string }
     expect(row.metric).toBe('applied')
+  })
+
+  it('creates apply_attempts', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration, applyAttemptsMigration], () => undefined)
+
+    expect(tableNames(db)).toContain('apply_attempts')
   })
 })

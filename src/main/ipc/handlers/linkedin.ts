@@ -6,6 +6,7 @@ import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
 import { fetchAppliedCount } from '../../engine/fetchAppliedCount'
 import { fetchRecentAppliedJobs } from '../../engine/fetchRecentAppliedJobs'
+import { applyToJob } from '../../engine/applyToJob'
 
 export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinCheckLogin, () =>
@@ -54,9 +55,7 @@ export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinApplyToJob, (_event, jobId: string, dryRun: boolean) =>
     withLock('linkedin', () => {
       ensurePlatformViewLoaded('linkedin')
-      const adapter = getAdapter('linkedin')
-      if (!adapter.applyToJob) throw new Error('linkedin adapter has no applyToJob capability')
-      return adapter.applyToJob(jobId, dryRun)
+      return applyToJob('linkedin', jobId, dryRun)
     })
   )
 }

@@ -7,11 +7,13 @@ import { runMigrations, type Migration } from './migrate'
 import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
 import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 import appliedJobsSql from './migrations/20260911T2200_applied_jobs.sql?raw'
+import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
   { id: '20260911T2100_applied_counts_metric.sql', sql: appliedCountsMetricSql },
-  { id: '20260911T2200_applied_jobs.sql', sql: appliedJobsSql }
+  { id: '20260911T2200_applied_jobs.sql', sql: appliedJobsSql },
+  { id: '20260911T2300_apply_attempts.sql', sql: applyAttemptsSql }
 ]
 
 let db: DatabaseSync | undefined
