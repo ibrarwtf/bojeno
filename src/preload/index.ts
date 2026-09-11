@@ -5,6 +5,7 @@ import type {
   ActiveTabUrl,
   AppliedCountPoint,
   FetchAppliedCountResult,
+  FetchRecentAppliedJobsResult,
   LoginStatus,
   Platform
 } from '../shared/types'
@@ -21,6 +22,12 @@ const bojenoApi = {
         ? IpcChannels.linkedinFetchAppliedCount
         : IpcChannels.naukriFetchAppliedCount
     return ipcRenderer.invoke(channel)
+  },
+  fetchRecentAppliedJobs: (platform: Platform): Promise<FetchRecentAppliedJobsResult> => {
+    if (platform !== 'linkedin') {
+      return Promise.reject(new Error(`fetchRecentAppliedJobs is not available for ${platform}`))
+    }
+    return ipcRenderer.invoke(IpcChannels.linkedinFetchRecentAppliedJobs)
   },
   activateTab: (args: ActivateTabArgs): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.platformActivateTab, args),

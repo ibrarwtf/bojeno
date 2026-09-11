@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import type { FetchAppliedCountResult, LoginStatus, Platform } from '../../../../shared/types'
+import type {
+  FetchAppliedCountResult,
+  FetchRecentAppliedJobsResult,
+  LoginStatus,
+  Platform
+} from '../../../../shared/types'
 import { Tracker } from '../Tracker/Tracker'
 
 const platforms: Platform[] = ['linkedin', 'naukri']
@@ -37,6 +42,8 @@ export function Dashboard(): React.JSX.Element {
     naukri: false
   })
   const [trackerRefreshKey, setTrackerRefreshKey] = useState(0)
+  const [recentJobsResult, setRecentJobsResult] = useState<FetchRecentAppliedJobsResult>()
+  const [fetchingRecentJobs, setFetchingRecentJobs] = useState(false)
 
   async function checkPlatform(platform: Platform): Promise<void> {
     setChecking((prev) => ({ ...prev, [platform]: true }))
@@ -77,6 +84,22 @@ export function Dashboard(): React.JSX.Element {
     }
   }
 
+  async function fetchRecentJobs(): Promise<void> {
+    setFetchingRecentJobs(true)
+    try {
+      const result = await window.bojeno.fetchRecentAppliedJobs('linkedin')
+      setRecentJobsResult(result)
+      if (result.outcome === 'auth_required') {
+        setStatuses((prev) => ({
+          ...prev,
+          linkedin: { platform: 'linkedin', loggedIn: false, checkedAt: new Date().toISOString() }
+        }))
+      }
+    } finally {
+      setFetchingRecentJobs(false)
+    }
+  }
+
   return (
     <div className="dashboard">
       <h2>Bojeno</h2>
@@ -114,6 +137,22 @@ export function Dashboard(): React.JSX.Element {
                 ))}
               {countResult?.outcome === 'failed' && <p className="status-error">Fetch failed</p>}
             </div>
+            {platform === 'linkedin' && (
+              <div className="applied-count">
+                <button onClick={() => void fetchRecentJobs()} disabled={fetchingRecentJobs}>
+                  {fetchingRecentJobs ? 'Fetching…' : 'Fetch jobs applied (past 24h)'}
+                </button>
+                {recentJobsResult?.outcome === 'success' && (
+                  <p>
+                    Found <strong>{recentJobsResult.jobsFound}</strong> job
+                    {recentJobsResult.jobsFound === 1 ? '' : 's'} applied in the past 24h
+                  </p>
+                )}
+                {recentJobsResult?.outcome === 'failed' && (
+                  <p className="status-error">Fetch failed</p>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

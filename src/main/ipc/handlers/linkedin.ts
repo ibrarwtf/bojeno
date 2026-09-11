@@ -3,6 +3,7 @@ import { IpcChannels } from '../channels'
 import { getAdapter } from '../../adapters/registry'
 import { withLock } from '../../lock'
 import { fetchAppliedCount } from '../../engine/fetchAppliedCount'
+import { fetchRecentAppliedJobs } from '../../engine/fetchRecentAppliedJobs'
 
 export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinCheckLogin, () =>
@@ -15,5 +16,9 @@ export function registerLinkedinHandlers(): void {
 
   ipcMain.handle(IpcChannels.linkedinFetchAppliedCount, () =>
     withLock('linkedin', () => fetchAppliedCount('linkedin'))
+  )
+
+  ipcMain.handle(IpcChannels.linkedinFetchRecentAppliedJobs, () =>
+    withLock('linkedin', () => fetchRecentAppliedJobs('linkedin'))
   )
 }
