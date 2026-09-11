@@ -29,4 +29,15 @@ export function registerLinkedinHandlers(): void {
       return fetchRecentAppliedJobs('linkedin')
     })
   )
+
+  ipcMain.handle(IpcChannels.linkedinCaptureJobDetails, (_event, jobUrl: string) =>
+    withLock('linkedin', () => {
+      ensurePlatformViewLoaded('linkedin')
+      const adapter = getAdapter('linkedin')
+      if (!adapter.captureJobDetails) {
+        throw new Error('linkedin adapter has no captureJobDetails capability')
+      }
+      return adapter.captureJobDetails(jobUrl)
+    })
+  )
 }

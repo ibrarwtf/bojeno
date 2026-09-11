@@ -6,6 +6,7 @@ import type {
   AppliedCountPoint,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
+  JobDetails,
   LoginStatus,
   Platform
 } from '../shared/types'
@@ -39,7 +40,9 @@ const bojenoApi = {
     return () => ipcRenderer.removeListener(IpcChannels.platformActiveTabUrlChanged, listener)
   },
   getAppliedCountHistory: (): Promise<AppliedCountPoint[]> =>
-    ipcRenderer.invoke(IpcChannels.trackerGetAppliedCountHistory)
+    ipcRenderer.invoke(IpcChannels.trackerGetAppliedCountHistory),
+  captureJobDetails: (jobUrl: string): Promise<JobDetails> =>
+    ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl)
 }
 
 if (process.contextIsolated) {

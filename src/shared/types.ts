@@ -49,3 +49,17 @@ export interface FetchRecentAppliedJobsResult {
   platform: Platform
   jobsFound?: number
 }
+
+/** Everything captureJobDetails can read off a LinkedIn job's detail page. */
+export interface JobDetails {
+  jobUrl: string
+  company: string
+  title: string
+  postedRelative: string | null
+  clickedApplyCount: string | null
+  applicantCount: string | null
+  hasFitSignal: boolean
+  yearsRequired: number | null
+  descriptionText: string
+  applicantInsightsText: string | null
+}
