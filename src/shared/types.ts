@@ -5,3 +5,8 @@ export interface LoginStatus {
   loggedIn: boolean
   checkedAt: string
 }
+
+export interface ActiveTabUrl {
+  platform: Platform
+  url: string
+}

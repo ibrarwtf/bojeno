@@ -6,12 +6,44 @@ body {
 }
 
 #root {
-  width: 360px;
+  width: 100%;
+  height: 100vh;
   box-sizing: border-box;
 }
 
+/* These pixel values must match LEFT_PANE_WIDTH / URL_BAR_HEIGHT in src/main/window.ts —
+   they mark out the renderer regions not covered by the WebContentsView panes. */
 .dashboard {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 360px;
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
   padding: 16px;
+}
+
+.url-bar {
+  position: fixed;
+  top: 0;
+  left: 360px;
+  right: 0;
+  height: 36px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ev-c-gray-2);
+  background-color: var(--ev-c-black-soft);
+}
+
+.url-bar-text {
+  font-size: 13px;
+  color: var(--ev-c-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .platform-card {

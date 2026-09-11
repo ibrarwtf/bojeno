@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels, type ActivateTabArgs } from '../shared/ipc-contract'
-import type { LoginStatus, Platform } from '../shared/types'
+import type { ActiveTabUrl, LoginStatus, Platform } from '../shared/types'
 
 const bojenoApi = {
   checkLogin: (platform: Platform): Promise<LoginStatus> => {
@@ -10,7 +10,14 @@ const bojenoApi = {
     return ipcRenderer.invoke(channel)
   },
   activateTab: (args: ActivateTabArgs): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.platformActivateTab, args)
+    ipcRenderer.invoke(IpcChannels.platformActivateTab, args),
+  getActiveTabUrl: (): Promise<ActiveTabUrl> =>
+    ipcRenderer.invoke(IpcChannels.platformGetActiveTabUrl),
+  onActiveTabUrlChanged: (callback: (data: ActiveTabUrl) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: ActiveTabUrl): void => callback(data)
+    ipcRenderer.on(IpcChannels.platformActiveTabUrlChanged, listener)
+    return () => ipcRenderer.removeListener(IpcChannels.platformActiveTabUrlChanged, listener)
+  }
 }
 
 if (process.contextIsolated) {

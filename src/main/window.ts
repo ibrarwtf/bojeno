@@ -2,9 +2,11 @@ import { BrowserWindow, WebContentsView, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { instanceId } from './instance'
-import type { Platform } from '../shared/types'
+import type { ActiveTabUrl, Platform } from '../shared/types'
+import { IpcChannels } from '../shared/ipc-contract'
 
 const LEFT_PANE_WIDTH = 360
+const URL_BAR_HEIGHT = 36
 
 const platformHomeUrl: Record<Platform, string> = {
   linkedin: 'https://www.linkedin.com',
@@ -23,11 +25,23 @@ let activePlatform: Platform = 'linkedin'
 function layoutViews(): void {
   if (!mainWindow || !views) return
   const { width, height } = mainWindow.getContentBounds()
-  const bounds = { x: LEFT_PANE_WIDTH, y: 0, width: Math.max(width - LEFT_PANE_WIDTH, 0), height }
+  const bounds = {
+    x: LEFT_PANE_WIDTH,
+    y: URL_BAR_HEIGHT,
+    width: Math.max(width - LEFT_PANE_WIDTH, 0),
+    height: Math.max(height - URL_BAR_HEIGHT, 0)
+  }
   for (const platform of Object.keys(views) as Platform[]) {
     views[platform].setBounds(bounds)
     views[platform].setVisible(platform === activePlatform)
   }
+}
+
+function notifyActiveTabUrl(): void {
+  if (!mainWindow || !views) return
+  const url = views[activePlatform].webContents.getURL()
+  const payload: ActiveTabUrl = { platform: activePlatform, url }
+  mainWindow.webContents.send(IpcChannels.platformActiveTabUrlChanged, payload)
 }
 
 function createPlatformView(platform: Platform): WebContentsView {
@@ -38,6 +52,12 @@ function createPlatformView(platform: Platform): WebContentsView {
     }
   })
   view.setBackgroundColor('#00000000')
+  view.webContents.on('did-navigate', () => {
+    if (platform === activePlatform) notifyActiveTabUrl()
+  })
+  view.webContents.on('did-navigate-in-page', () => {
+    if (platform === activePlatform) notifyActiveTabUrl()
+  })
   view.webContents.loadURL(platformHomeUrl[platform])
   return view
 }
@@ -81,7 +101,12 @@ export function createWindow(): BrowserWindow {
 export function activateTab(platform: Platform, navigateToLogin?: boolean): void {
   activePlatform = platform
   layoutViews()
+  notifyActiveTabUrl()
   if (navigateToLogin && views) {
     views[platform].webContents.loadURL(platformLoginUrl[platform])
   }
+}
+
+export function getActiveTabUrl(): ActiveTabUrl {
+  return { platform: activePlatform, url: views?.[activePlatform].webContents.getURL() ?? '' }
 }
