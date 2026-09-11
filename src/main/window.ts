@@ -58,8 +58,31 @@ function createPlatformView(platform: Platform): WebContentsView {
   view.webContents.on('did-navigate-in-page', () => {
     if (platform === activePlatform) notifyActiveTabUrl()
   })
-  view.webContents.loadURL(platformHomeUrl[platform])
+  // Loaded to about:blank rather than the platform's real home page - see
+  // ensurePlatformViewLoaded. Loading both platforms' home pages
+  // unconditionally on every app launch meant every `npm run dev` restart
+  // during development was itself a real hit against LinkedIn/Naukri, which
+  // is exactly the kind of unnecessary traffic that risks a rate limit or a
+  // flagged session. A committed about:blank navigation (rather than an
+  // never-navigated view) is required here, not optional - Playwright's CDP
+  // client hangs indefinitely trying to attach to a WebContentsView target
+  // with no frame ever committed, which blocks devcheck/adapter connections
+  // for every page, not just this one.
+  view.webContents.loadURL('about:blank')
   return view
+}
+
+/**
+ * Navigates a platform's view to its home page only if it hasn't already -
+ * called right before any adapter action that needs the page (via
+ * findPageByUrlPart), and when the user switches to a tab. A fresh
+ * WebContentsView's URL is empty/"about:blank" until this runs once.
+ */
+export function ensurePlatformViewLoaded(platform: Platform): void {
+  if (!views) return
+  const currentUrl = views[platform].webContents.getURL()
+  if (currentUrl && currentUrl !== 'about:blank') return
+  views[platform].webContents.loadURL(platformHomeUrl[platform])
 }
 
 export function createWindow(): BrowserWindow {
@@ -104,10 +127,12 @@ export function createWindow(): BrowserWindow {
 export function activateTab(platform: Platform, navigateToLogin?: boolean): void {
   activePlatform = platform
   layoutViews()
-  notifyActiveTabUrl()
   if (navigateToLogin && views) {
     views[platform].webContents.loadURL(platformLoginUrl[platform])
+  } else {
+    ensurePlatformViewLoaded(platform)
   }
+  notifyActiveTabUrl()
 }
 
 export function getActiveTabUrl(): ActiveTabUrl {
