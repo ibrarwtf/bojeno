@@ -27,7 +27,8 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm run check"
+    "pre-commit": "npm run check",
+    "commit-msg": "node scripts/check-commit-msg.cjs $1"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
