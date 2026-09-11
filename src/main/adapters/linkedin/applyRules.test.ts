@@ -10,9 +10,13 @@ import {
   yesNoOptionMatch,
   pickOptionByRule
 } from './applyRules'
-import type { AnswerBank } from './answers'
+import type { AnswerBank } from '../../config/answerBank'
 
 const ANSWERS: AnswerBank = {
+  full_name: 'Test User',
+  email: 'test@example.com',
+  phone: '+91 9999999999',
+  resume_path: '/tmp/resume.pdf',
   current_ctc: 18,
   expected_ctc: 24,
   last_working_day: '2099-01-01',

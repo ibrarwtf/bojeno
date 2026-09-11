@@ -8,12 +8,14 @@ import { incrementActionBudget } from '../db/queries/actionBudget'
 import type { ApplyResult, Platform } from '../../shared/types'
 
 /**
- * Same mode gate + login gate + run_logs convention as fetchAppliedCount/
- * fetchRecentAppliedJobs, plus the actual safety-critical part for this
- * action: only 'live' mode can honor a real submit request. 'dry-run' and
- * 'read-only' force dryRun=true regardless of what was requested, so a
- * stray "live" apply call can't submit anything while the global mode
- * switch isn't set to live.
+ * LinkedIn/Naukri-shaped only: a `kind: 'session'` adapter with a login gate
+ * and a DOM-modal apply flow reachable by jobId + captureJobDetails. This is
+ * deliberately NOT a generic dispatcher every adapter routes through - an
+ * unauthenticated, no-session adapter like Lever has a structurally
+ * different apply flow (no login, no modal, a raw HTTP form submit with its
+ * own per-posting question shapes) and owns its complete orchestration
+ * (mode gate, blacklist check, run_logs, apply_attempts) in its own
+ * adapters/lever/apply.ts instead of being bent to fit this shape.
  */
 export async function applyToJob(
   platform: Platform,

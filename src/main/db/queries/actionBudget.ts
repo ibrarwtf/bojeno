@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { Platform } from '../../../shared/types'
+import type { Source } from '../../../shared/types'
 
 /** Calendar-day bucket ('YYYY-MM-DD') - a simplified rolling window, per the brief's action_budget concept. */
 function today(): string {
@@ -8,7 +8,7 @@ function today(): string {
 
 export function incrementActionBudget(
   db: DatabaseSync,
-  platform: Platform,
+  platform: Source,
   actionType: string
 ): void {
   db.prepare(
@@ -19,7 +19,7 @@ export function incrementActionBudget(
 
 export function getActionBudgetToday(
   db: DatabaseSync,
-  platform: Platform,
+  platform: Source,
   actionType: string
 ): number {
   const row = db
