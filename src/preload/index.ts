@@ -1,10 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { IpcChannels, type ActivateTabArgs, type ScanJobsArgs } from '../shared/ipc-contract'
+import {
+  IpcChannels,
+  type ActivateTabArgs,
+  type AtsDiscoverArgs,
+  type ScanJobsArgs
+} from '../shared/ipc-contract'
 import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
+  DiscoverResult,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
@@ -50,7 +56,9 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
   applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
-  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs)
+  getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
+  discover: (args: AtsDiscoverArgs): Promise<DiscoverResult> =>
+    ipcRenderer.invoke(IpcChannels.atsDiscover, args)
 }
 
 if (process.contextIsolated) {
