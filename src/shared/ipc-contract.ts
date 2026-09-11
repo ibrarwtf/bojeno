@@ -1,8 +1,10 @@
-import type { ActiveTabUrl, LoginStatus, Platform } from './types'
+import type { ActiveTabUrl, FetchAppliedCountResult, LoginStatus, Platform } from './types'
 
 export const IpcChannels = {
   linkedinCheckLogin: 'linkedin:checkLogin',
+  linkedinFetchAppliedCount: 'linkedin:fetchAppliedCount',
   naukriCheckLogin: 'naukri:checkLogin',
+  naukriFetchAppliedCount: 'naukri:fetchAppliedCount',
   platformActivateTab: 'platform:activateTab',
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
@@ -19,9 +21,17 @@ export interface IpcContract {
     args: []
     return: LoginStatus
   }
+  [IpcChannels.linkedinFetchAppliedCount]: {
+    args: []
+    return: FetchAppliedCountResult
+  }
   [IpcChannels.naukriCheckLogin]: {
     args: []
     return: LoginStatus
+  }
+  [IpcChannels.naukriFetchAppliedCount]: {
+    args: []
+    return: FetchAppliedCountResult
   }
   [IpcChannels.platformActivateTab]: {
     args: [ActivateTabArgs]

@@ -2,8 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { DatabaseSync } from 'node:sqlite'
 import { runMigrations, type Migration } from './migrate'
 import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
+import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
+const metricMigration: Migration = {
+  id: '20260911T2100_applied_counts_metric.sql',
+  sql: appliedCountsMetricSql
+}
 
 function tableNames(db: DatabaseSync): string[] {
   return (
@@ -63,5 +68,18 @@ describe('runMigrations', () => {
 
     const applied = runMigrations(db, [second, initMigration], () => undefined)
     expect(applied).toEqual([initMigration.id, second.id])
+  })
+
+  it('adds a metric column to applied_counts, defaulting existing rows to "applied"', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(db, [initMigration], () => undefined)
+    db.prepare(
+      "INSERT INTO applied_counts (platform, count, fetched_at) VALUES ('linkedin', 459, '2026-09-11T00:00:00.000Z')"
+    ).run()
+
+    runMigrations(db, [initMigration, metricMigration], () => undefined)
+
+    const row = db.prepare('SELECT metric FROM applied_counts').get() as { metric: string }
+    expect(row.metric).toBe('applied')
   })
 })

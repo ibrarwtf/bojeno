@@ -71,3 +71,14 @@ body {
   justify-content: space-between;
   gap: 8px;
 }
+
+.applied-count {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ev-c-gray-2);
+}
+
+.status-error {
+  color: #cf222e;
+  font-weight: 600;
+}

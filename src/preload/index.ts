@@ -1,12 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { IpcChannels, type ActivateTabArgs } from '../shared/ipc-contract'
-import type { ActiveTabUrl, LoginStatus, Platform } from '../shared/types'
+import type { ActiveTabUrl, FetchAppliedCountResult, LoginStatus, Platform } from '../shared/types'
 
 const bojenoApi = {
   checkLogin: (platform: Platform): Promise<LoginStatus> => {
     const channel =
       platform === 'linkedin' ? IpcChannels.linkedinCheckLogin : IpcChannels.naukriCheckLogin
+    return ipcRenderer.invoke(channel)
+  },
+  fetchAppliedCount: (platform: Platform): Promise<FetchAppliedCountResult> => {
+    const channel =
+      platform === 'linkedin'
+        ? IpcChannels.linkedinFetchAppliedCount
+        : IpcChannels.naukriFetchAppliedCount
     return ipcRenderer.invoke(channel)
   },
   activateTab: (args: ActivateTabArgs): Promise<void> =>

@@ -5,8 +5,12 @@ import { copyFileSync, existsSync, mkdirSync } from 'fs'
 import { instanceId } from '../instance'
 import { runMigrations, type Migration } from './migrate'
 import initMigrationSql from './migrations/20260911T1900_init.sql?raw'
+import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_metric.sql?raw'
 
-const migrations: Migration[] = [{ id: '20260911T1900_init.sql', sql: initMigrationSql }]
+const migrations: Migration[] = [
+  { id: '20260911T1900_init.sql', sql: initMigrationSql },
+  { id: '20260911T2100_applied_counts_metric.sql', sql: appliedCountsMetricSql }
+]
 
 let db: DatabaseSync | undefined
 
