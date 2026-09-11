@@ -1,5 +1,7 @@
 import { app } from 'electron'
 import { chromium, type Browser, type Page } from 'playwright-core'
+import { mkdirSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
 let debugPort: number | undefined
 let browserPromise: Promise<Browser> | undefined
@@ -12,7 +14,23 @@ export function setupRemoteDebugging(): number {
   if (debugPort !== undefined) return debugPort
   debugPort = 9200 + Math.floor(Math.random() * 800)
   app.commandLine.appendSwitch('remote-debugging-port', String(debugPort))
+  writeDebugPortFile(debugPort)
   return debugPort
+}
+
+/**
+ * Dev convenience only — lets scripts/devcheck.cjs (and anyone else) find the
+ * running app's CDP port without grepping logs or guessing. Best-effort: a
+ * write failure here must never take down app startup.
+ */
+function writeDebugPortFile(port: number): void {
+  try {
+    const dir = join(process.cwd(), '.dev')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'cdp-port'), String(port), 'utf-8')
+  } catch {
+    // ignore — this is a dev convenience, not app functionality
+  }
 }
 
 function getBrowser(): Promise<Browser> {

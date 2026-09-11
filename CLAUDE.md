@@ -5,20 +5,22 @@ Read [`bojeno-project-brief.md`](./bojeno-project-brief.md) first — it's the s
 ## Commands
 
 ```bash
-npm run dev         # electron-vite dev --watch — watch requires the flag, see gotchas below
-npm run typecheck   # tsc, strict, both main and renderer
-npm run lint        # eslint --cache
-npm run format      # prettier --write . — bojeno-project-brief.md is excluded, don't remove that exclusion
-npm run test        # vitest run
+npm run dev          # electron-vite dev --watch — watch requires the flag, see gotchas below
+npm run check        # typecheck + lint + test, in that order — this is what pre-commit runs too
+npm run devcheck --  "<expr>"   # eval an expression against the running app's renderer, see below
+npm run dev:restart  # kill stray electron/node processes left over from a previous dev session, then start fresh
+npm run dev:clean    # same kill, without restarting
 ```
 
-Run `typecheck`, `lint`, and `test` before every commit — not just the one that seems relevant to the change.
+A pre-commit hook (`simple-git-hooks`, auto-installed by `npm install` via the `prepare` script) runs `npm run check` on every commit. A commit-msg hook enforces the `<type>(<scope>): #<issue> <summary>` format from `CONTRIBUTING.md` on the subject line. If either fails, the commit is blocked — fix it and commit again, don't bypass with `--no-verify`/`SKIP_SIMPLE_GIT_HOOKS=1` unless the user explicitly asks for that.
 
 ## Verify against the real running app, not just green checks
 
-A passing `typecheck`/`lint`/`test` run proves the code compiles and the pure logic is right. It proves nothing about whether a selector actually matches, whether a login-check actually detects a real session, or whether a chart actually renders with real data. Every feature in this repo so far was verified by starting `npm run dev`, then either driving it directly (CDP via `playwright-core`, or the in-app browser tool) or asking the owner to use it — not by reading the diff. Several real bugs (wrong selectors, a login-check that reported a real session as logged out, a race condition StrictMode exposed) were caught this way and would not have been caught by typecheck/lint/tests alone.
+A passing `typecheck`/`lint`/`test` run proves the code compiles and the pure logic is right. It proves nothing about whether a selector actually matches, whether a login-check actually detects a real session, or whether a chart actually renders with real data. Every feature in this repo so far was verified by starting `npm run dev`, then either driving it directly or asking the owner to use it — not by reading the diff. Several real bugs (wrong selectors, a login-check that reported a real session as logged out, a race condition StrictMode exposed) were caught this way and would not have been caught by typecheck/lint/tests alone.
 
-When inspecting a real logged-in page to write a selector, **inspect it live first** (via the browser tool, or a small `page.evaluate()` script) — don't guess a selector from a screenshot or a hunch and hope it's stable. LinkedIn ships hashed/obfuscated class names throughout (confirmed repeatedly); Naukri sometimes has real semantic ones. You won't know which until you look.
+**Use `npm run devcheck -- "<expression>"` for this**, instead of hand-writing a throwaway CDP script every time — it reads the running app's debug port from `.dev/cdp-port` (written automatically on startup), connects, finds the renderer page, evaluates the expression there, and prints the JSON result. Example: `npm run devcheck -- "window.bojeno.checkLogin('linkedin')"`. Any `window.bojeno.*` call, or arbitrary page JS, works. This replaced writing and deleting a one-off `.tmp-check.cjs` file more than a dozen times in one session — don't go back to doing that.
+
+When inspecting a real logged-in page to write a selector, **inspect it live first** (via the browser tool, or `devcheck`/a `page.evaluate()` expression) — don't guess a selector from a screenshot or a hunch and hope it's stable. LinkedIn ships hashed/obfuscated class names throughout (confirmed repeatedly); Naukri sometimes has real semantic ones. You won't know which until you look.
 
 ## Concurrency: adapter actions that navigate must be serialized
 
