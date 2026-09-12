@@ -77,7 +77,8 @@ vi.mock('../../config/preferences', () => ({
 // Real module - no electron dependency - used to make ensureLoggedIn() see
 // an already-logged-in session so the handler runs past the login check.
 import { setCachedLoginStatus } from '../../adapters/linkedin/loginStatusCache'
-import { registerLinkedinHandlers } from './linkedin'
+import { insertRunLog } from '../../db/queries/runLogs'
+import { registerLinkedinHandlers, runSavedSearchNow, isLinkedinRunActive } from './linkedin'
 
 function summary(overrides: Partial<SequentialRunSummary> = {}): SequentialRunSummary {
   return {
@@ -173,5 +174,65 @@ describe('linkedinRunSequentialSearch concurrency gate', () => {
 
     runSequentialSearchMock.mockResolvedValueOnce(summary({ total: 4 }))
     await expect(runHandler('run-2')).resolves.toEqual(summary({ total: 4 }))
+  })
+})
+
+describe('runSavedSearchNow - the function both manual and scheduled triggers call', () => {
+  beforeEach(() => {
+    handlers.clear()
+    runSequentialSearchMock.mockReset()
+    vi.mocked(insertRunLog).mockClear()
+    setCachedLoginStatus({
+      platform: 'linkedin',
+      loggedIn: true,
+      checkedAt: new Date().toISOString()
+    })
+  })
+
+  it('records triggerType "scheduled" in run_logs when called by the scheduler', async () => {
+    runSequentialSearchMock.mockResolvedValueOnce(summary({ total: 1, applied: 1 }))
+
+    await runSavedSearchNow(runArgs('sched-1'), 'live', 'scheduled')
+
+    const summaryLogCall = vi
+      .mocked(insertRunLog)
+      .mock.calls.find(([, entry]) => entry.script === 'linkedin:runSequentialSearch')
+    expect(summaryLogCall?.[1].triggerType).toBe('scheduled')
+  })
+
+  it('isLinkedinRunActive reflects a run in flight, then clears once it finishes', async () => {
+    expect(isLinkedinRunActive()).toBe(false)
+
+    let resolveRun!: (value: SequentialRunSummary) => void
+    runSequentialSearchMock.mockReturnValueOnce(
+      new Promise<SequentialRunSummary>((resolve) => {
+        resolveRun = resolve
+      })
+    )
+
+    const pending = runSavedSearchNow(runArgs('sched-2'), 'live', 'scheduled')
+    expect(isLinkedinRunActive()).toBe(true)
+
+    resolveRun(summary({ total: 1 }))
+    await pending
+
+    expect(isLinkedinRunActive()).toBe(false)
+  })
+
+  it('a scheduled call is rejected the same way a second manual call is, while one is active', async () => {
+    let resolveRun!: (value: SequentialRunSummary) => void
+    runSequentialSearchMock.mockReturnValueOnce(
+      new Promise<SequentialRunSummary>((resolve) => {
+        resolveRun = resolve
+      })
+    )
+
+    const manual = runSavedSearchNow(runArgs('manual-1'), 'live', 'manual')
+    expect(() => runSavedSearchNow(runArgs('sched-3'), 'live', 'scheduled')).toThrow(
+      /already in progress/i
+    )
+
+    resolveRun(summary({ total: 1 }))
+    await manual
   })
 })
