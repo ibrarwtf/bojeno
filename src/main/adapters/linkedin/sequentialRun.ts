@@ -17,13 +17,19 @@ import type {
   SearchUrlParams,
   SequentialRunSummary
 } from '../../../shared/types'
-import { scanJobs, jobUrlFor } from './adapter'
+import { findPageByUrlPart } from '../../cdp'
+import { scanJobs, scanCurrentPage, readPaginationState, goToNextPage, jobUrlFor } from './adapter'
 import { selectJobCard, captureActiveJobDetails, applyFromSearchResults } from './searchPaneApply'
 
 export { jobUrlFor }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 const paceBetweenJobs = (): Promise<void> => sleep(3000 + Math.floor(Math.random() * 3000))
+
+// A generous ceiling, not a real expectation - stops a runaway walk (a
+// mis-scoped search with hundreds of pages) from turning into an
+// effectively unbounded run rather than reflecting any real LinkedIn limit.
+const MAX_PAGES = 50
 
 export interface SequentialRunStep {
   card: ScannedJobCard
@@ -64,70 +70,95 @@ export async function runSequentialSearch(
   dryRun: boolean,
   hooks: SequentialRunHooks
 ): Promise<SequentialRunSummary> {
-  const cards = await scanJobs(params)
-  hooks.onDiscovered?.(cards)
-
   const summary: SequentialRunSummary = {
-    total: cards.length,
+    total: 0,
     applied: 0,
     dryRunApplied: 0,
     needsReview: 0,
     skipped: 0,
     failed: 0,
-    cancelled: false
+    cancelled: false,
+    pagesScanned: 0,
+    totalPages: null
   }
 
-  for (let index = 0; index < cards.length; index++) {
+  let cards = await scanJobs(params)
+  hooks.onDiscovered?.(cards)
+
+  pageLoop: for (;;) {
+    summary.pagesScanned++
+    summary.total += cards.length
+
+    for (let index = 0; index < cards.length; index++) {
+      if (hooks.isCancelled?.()) {
+        summary.cancelled = true
+        break pageLoop
+      }
+
+      const card = cards[index]
+      const step: SequentialRunStep = { card, index, total: cards.length }
+
+      if (!isEligible(card)) {
+        summary.skipped++
+        hooks.onSkipped?.(
+          step,
+          card.alreadyApplied ? 'already applied' : 'card did not parse cleanly'
+        )
+        continue
+      }
+
+      const cardSkipReason = hooks.filterCard?.(card)
+      if (cardSkipReason) {
+        summary.skipped++
+        hooks.onSkipped?.(step, cardSkipReason)
+        continue
+      }
+
+      let details: JobDetails | undefined
+      try {
+        await selectJobCard(card.id)
+        details = await captureActiveJobDetails(card.id)
+        const skipReason = hooks.decide(step, details)
+        if (skipReason) {
+          summary.skipped++
+          hooks.onSkipped?.(step, skipReason, details)
+          continue
+        }
+
+        const result = await applyFromSearchResults(dryRun)
+        // Bucketed by the run's own dryRun flag, never by outcome alone - a
+        // dry run must never be able to inflate the real `applied` count.
+        if (result.outcome === 'applied') summary.applied++
+        else if (result.outcome === 'dry_run_ok') summary.dryRunApplied++
+        else if (result.outcome === 'needs_review') summary.needsReview++
+        else if (result.outcome === 'skipped') summary.skipped++
+        else if (result.outcome === 'error') summary.failed++
+        hooks.onApplyResult?.(step, result, details)
+      } catch (error) {
+        summary.failed++
+        hooks.onError?.(step, error, details)
+      }
+
+      if (index < cards.length - 1) await paceBetweenJobs()
+    }
+
     if (hooks.isCancelled?.()) {
       summary.cancelled = true
       break
     }
 
-    const card = cards[index]
-    const step: SequentialRunStep = { card, index, total: cards.length }
+    const page = await findPageByUrlPart('linkedin.com')
+    const pagination = await readPaginationState(page)
+    summary.totalPages = pagination?.totalPages ?? summary.totalPages
+    if (!pagination || pagination.currentPage >= pagination.totalPages) break
+    if (summary.pagesScanned >= MAX_PAGES) break
 
-    if (!isEligible(card)) {
-      summary.skipped++
-      hooks.onSkipped?.(
-        step,
-        card.alreadyApplied ? 'already applied' : 'card did not parse cleanly'
-      )
-      continue
-    }
+    const moved = await goToNextPage(page)
+    if (!moved) break
 
-    const cardSkipReason = hooks.filterCard?.(card)
-    if (cardSkipReason) {
-      summary.skipped++
-      hooks.onSkipped?.(step, cardSkipReason)
-      continue
-    }
-
-    let details: JobDetails | undefined
-    try {
-      await selectJobCard(card.id)
-      details = await captureActiveJobDetails(card.id)
-      const skipReason = hooks.decide(step, details)
-      if (skipReason) {
-        summary.skipped++
-        hooks.onSkipped?.(step, skipReason, details)
-        continue
-      }
-
-      const result = await applyFromSearchResults(dryRun)
-      // Bucketed by the run's own dryRun flag, never by outcome alone - a
-      // dry run must never be able to inflate the real `applied` count.
-      if (result.outcome === 'applied') summary.applied++
-      else if (result.outcome === 'dry_run_ok') summary.dryRunApplied++
-      else if (result.outcome === 'needs_review') summary.needsReview++
-      else if (result.outcome === 'skipped') summary.skipped++
-      else if (result.outcome === 'error') summary.failed++
-      hooks.onApplyResult?.(step, result, details)
-    } catch (error) {
-      summary.failed++
-      hooks.onError?.(step, error, details)
-    }
-
-    if (index < cards.length - 1) await paceBetweenJobs()
+    await paceBetweenJobs()
+    cards = await scanCurrentPage()
+    hooks.onDiscovered?.(cards)
   }
 
   return summary

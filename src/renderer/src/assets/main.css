@@ -85,7 +85,7 @@ body {
   top: 0;
   left: 360px;
   right: 0;
-  height: 96px;
+  height: 44px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -99,7 +99,6 @@ body {
   height: 44px;
   box-sizing: border-box;
   padding: 0 16px;
-  border-bottom: 1px solid var(--ev-c-gray-2);
 }
 
 .linkedin-account-header-platform {
@@ -143,37 +142,21 @@ body {
 .linkedin-account-header-stats {
   display: flex;
   align-items: center;
-  gap: 28px;
-  height: 52px;
-  box-sizing: border-box;
-  padding: 0 16px;
-}
-
-.linkedin-account-header-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 16px;
+  font-size: 13px;
 }
 
 .linkedin-account-header-stat-label {
-  font-size: 11px;
   color: var(--ev-c-text-2);
 }
 
 .linkedin-account-header-stat-value {
-  font-size: 15px;
   font-weight: 600;
-}
-
-.linkedin-account-header-stat-unit {
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--ev-c-text-2);
 }
 
 .url-bar {
   position: fixed;
-  top: 96px;
+  top: 44px;
   left: 360px;
   right: 0;
   height: 36px;
@@ -266,7 +249,9 @@ body {
 }
 
 .log-panel-outcome-review,
-.log-panel-outcome-skipped {
+.log-panel-outcome-skipped,
+.log-panel-outcome-already-applied,
+.log-panel-outcome-title-mismatch {
   color: #9a6700;
 }
 
@@ -285,6 +270,10 @@ body {
 
 .log-panel-job {
   color: var(--ev-c-text-1);
+}
+
+.log-panel-company {
+  color: var(--ev-c-text-2);
 }
 
 .log-panel-detail {

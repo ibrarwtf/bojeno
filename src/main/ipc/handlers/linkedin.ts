@@ -13,7 +13,7 @@ import { insertRunLog } from '../../db/queries/runLogs'
 import { insertAppliedCount } from '../../db/queries/appliedCounts'
 import { upsertAppliedJob } from '../../db/queries/appliedJobs'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
-import { isCompanyBlacklisted } from '../../db/queries/companyBlacklist'
+import { isCompanyBlacklisted, blacklistReason } from '../../db/queries/companyBlacklist'
 import { insertJobSnapshot } from '../../db/queries/jobSnapshots'
 import { insertUnmatchedQuestion } from '../../db/queries/unmatchedQuestions'
 import {
@@ -31,6 +31,7 @@ import {
   applyToJob as applyToLinkedinJob
 } from '../../adapters/linkedin/adapter'
 import { runSequentialSearch, jobUrlFor } from '../../adapters/linkedin/sequentialRun'
+import { cachedLoginStatus, setCachedLoginStatus } from '../../adapters/linkedin/loginStatusCache'
 import { evaluateApplicantPreference } from '../../adapters/linkedin/preferencesGate'
 import { buildTitleFilter } from '../../adapters/linkedin/titleFilter'
 import { loadPreferences, type JobFilterPreferences } from '../../config/preferences'
@@ -63,7 +64,10 @@ function decideSkip(
   details: JobDetails,
   preferences: JobFilterPreferences
 ): string | undefined {
-  if (isCompanyBlacklisted(db, details.company)) return `blacklisted company: ${details.company}`
+  if (isCompanyBlacklisted(db, details.company)) {
+    const reason = blacklistReason(db, details.company)
+    return `blacklisted company: ${details.company}${reason ? ` (${reason})` : ''}`
+  }
   return evaluateApplicantPreference(details, preferences)
 }
 
@@ -74,6 +78,17 @@ function decideSkip(
  * removes its own entry when it's done, cancelled or not.
  */
 const activeRuns = new Map<string, { cancelled: boolean }>()
+
+/** Cached login check, reused by every script that just needs to know
+ *  whether it's safe to proceed - only the explicit "Check" button
+ *  (linkedinCheckLogin below) forces a real fresh navigation. */
+async function ensureLoggedIn(): ReturnType<typeof checkLogin> {
+  const cached = cachedLoginStatus()
+  if (cached) return cached
+  const status = await checkLogin()
+  setCachedLoginStatus(status)
+  return status
+}
 
 /** Records every question the answer bank couldn't match, for later review - not every 'needs_review' has any. */
 function recordUnmatchedQuestionIfAny(
@@ -99,9 +114,13 @@ function recordUnmatchedQuestionIfAny(
 
 export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinCheckLogin, () =>
-    withLock('linkedin', () => {
+    withLock('linkedin', async () => {
       ensurePlatformViewLoaded('linkedin')
-      return checkLogin()
+      // The one path that always does a real, fresh navigation-based check -
+      // every other script reuses its result via ensureLoggedIn() instead.
+      const status = await checkLogin()
+      setCachedLoginStatus(status)
+      return status
     })
   )
 
@@ -112,7 +131,7 @@ export function registerLinkedinHandlers(): void {
       const script = 'linkedin:fetchAppliedCount'
       const startedAt = Date.now()
 
-      const loginStatus = await checkLogin()
+      const loginStatus = await ensureLoggedIn()
       if (!loginStatus.loggedIn) {
         insertRunLog(db, {
           script,
@@ -163,7 +182,7 @@ export function registerLinkedinHandlers(): void {
       const script = 'linkedin:fetchRecentAppliedJobs'
       const startedAt = Date.now()
 
-      const loginStatus = await checkLogin()
+      const loginStatus = await ensureLoggedIn()
       if (!loginStatus.loggedIn) {
         insertRunLog(db, {
           script,
@@ -233,7 +252,7 @@ export function registerLinkedinHandlers(): void {
         const script = 'linkedin:applyToJob'
         const startedAt = Date.now()
 
-        const loginStatus = await checkLogin()
+        const loginStatus = await ensureLoggedIn()
         if (!loginStatus.loggedIn) {
           insertRunLog(db, {
             script,
@@ -332,7 +351,11 @@ export function registerLinkedinHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.linkedinRunSequentialSearch,
-    (_event, { runId, params, dryRun }: RunSequentialSearchArgs, mode: RunMode = 'live') =>
+    (
+      _event,
+      { runId, params, dryRun, savedSearchName }: RunSequentialSearchArgs,
+      mode: RunMode = 'live'
+    ) =>
       withLock('linkedin', async () => {
         ensurePlatformViewLoaded('linkedin')
         const db = getDb()
@@ -343,7 +366,7 @@ export function registerLinkedinHandlers(): void {
         // run that's still executing.
         activeRuns.set(runId, { cancelled: false })
 
-        const loginStatus = await checkLogin()
+        const loginStatus = await ensureLoggedIn()
         if (!loginStatus.loggedIn) {
           insertRunLog(db, {
             runId,
@@ -362,7 +385,9 @@ export function registerLinkedinHandlers(): void {
             needsReview: 0,
             skipped: 0,
             failed: 0,
-            cancelled: false
+            cancelled: false,
+            pagesScanned: 0,
+            totalPages: null
           }
         }
 
@@ -462,7 +487,7 @@ export function registerLinkedinHandlers(): void {
           triggerType: 'manual',
           runMode: mode,
           duration: Date.now() - startedAt,
-          detail: { params, dryRun: effectiveDryRun, summary }
+          detail: { params, dryRun: effectiveDryRun, summary, savedSearchName }
         })
         activeRuns.delete(runId)
         return summary

@@ -13,7 +13,7 @@ const SAVED_SEARCHES_WIDTH = 296
 const LEFT_PANE_WIDTH = RAIL_WIDTH + SAVED_SEARCHES_WIDTH
 // Height of the .linkedin-account-header block above the browser view. Naukri's own
 // workspace/header (when built) is expected to need its own geometry, not this one.
-const STATUS_BAR_HEIGHT = 96
+const STATUS_BAR_HEIGHT = 44
 const URL_BAR_HEIGHT = 36
 const LOG_PANEL_HEIGHT = 160
 

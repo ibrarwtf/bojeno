@@ -66,6 +66,8 @@ const bojenoApi = {
   getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
   getUnmatchedQuestions: (): Promise<UnmatchedQuestionRow[]> =>
     ipcRenderer.invoke(IpcChannels.trackerGetUnmatchedQuestions),
+  resolveUnmatchedQuestion: (id: number, answer: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.trackerResolveUnmatchedQuestion, id, answer),
   listSavedSearches: (): Promise<LinkedinSavedSearch[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesList),
   createSavedSearch: (args: CreateSavedSearchArgs): Promise<LinkedinSavedSearch> =>
