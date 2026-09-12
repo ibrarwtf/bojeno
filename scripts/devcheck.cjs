@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 // Reusable CDP verification helper — connects to the app started by
-// `npm run dev`, finds the renderer page, evaluates an expression against
-// it, and prints the (JSON-serialized) result. Replaces hand-writing a
-// throwaway script for every "does this actually work against the real
-// app" check.
+// `npm run dev`, finds a page, evaluates an expression against it, and
+// prints the (JSON-serialized) result. Replaces hand-writing a throwaway
+// script for every "does this actually work against the real app" check.
+// Targets the renderer by default; pass --page=<url-substring> to target a
+// platform's own WebContentsView instead (e.g. --page=linkedin.com) so
+// inspecting/driving a live LinkedIn/Naukri page doesn't need its own
+// one-off script either.
 //
 // Usage:
 //   npm run devcheck -- "window.bojeno.checkLogin('linkedin')"
+//   npm run devcheck -- --page=linkedin.com "document.title"
 //   node scripts/devcheck.cjs "window.bojeno.fetchAppliedCount('naukri')"
 
 const { chromium } = require('playwright-core')
@@ -14,10 +18,15 @@ const { readFileSync } = require('fs')
 const { join } = require('path')
 
 async function main() {
-  const expr = process.argv.slice(2).join(' ')
+  const args = process.argv.slice(2)
+  const pageFlag = args.find((a) => a.startsWith('--page='))
+  const pageMatch = pageFlag ? pageFlag.slice('--page='.length) : 'localhost:5173'
+  const expr = args.filter((a) => a !== pageFlag).join(' ')
+
   if (!expr) {
-    console.error('Usage: npm run devcheck -- "<expression to eval in the renderer>"')
+    console.error('Usage: npm run devcheck -- [--page=<url-substring>] "<expression to eval>"')
     console.error(`Example: npm run devcheck -- "window.bojeno.checkLogin('linkedin')"`)
+    console.error(`Example: npm run devcheck -- --page=linkedin.com "document.title"`)
     process.exit(1)
   }
 
@@ -34,10 +43,12 @@ async function main() {
   const page = browser
     .contexts()
     .flatMap((context) => context.pages())
-    .find((candidate) => candidate.url().includes('localhost:5173'))
+    .find((candidate) => candidate.url().includes(pageMatch))
 
   if (!page) {
-    console.error('Could not find the renderer page over CDP — is the app window open?')
+    console.error(
+      `Could not find a page matching "${pageMatch}" over CDP — is the app window open?`
+    )
     process.exit(1)
   }
 

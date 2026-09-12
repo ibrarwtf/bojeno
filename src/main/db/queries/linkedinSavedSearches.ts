@@ -6,6 +6,8 @@ interface SavedSearchRow {
   name: string
   keywords: string | null
   location: string | null
+  geo_id: string | null
+  distance_km: number | null
   sort_by_recent: number
   easy_apply_only: number
   created_at: string
@@ -18,6 +20,8 @@ function toSavedSearch(row: SavedSearchRow): LinkedinSavedSearch {
     name: row.name,
     keywords: row.keywords,
     location: row.location,
+    geoId: row.geo_id,
+    distanceKm: row.distance_km,
     sortByRecent: row.sort_by_recent === 1,
     easyApplyOnly: row.easy_apply_only === 1,
     createdAt: row.created_at,
@@ -26,7 +30,7 @@ function toSavedSearch(row: SavedSearchRow): LinkedinSavedSearch {
 }
 
 const SELECT_COLUMNS =
-  'id, name, keywords, location, sort_by_recent, easy_apply_only, created_at, last_run_at'
+  'id, name, keywords, location, geo_id, distance_km, sort_by_recent, easy_apply_only, created_at, last_run_at'
 
 /** Most recently created first. */
 export function listSavedSearches(db: DatabaseSync): LinkedinSavedSearch[] {
@@ -40,6 +44,8 @@ export interface CreateSavedSearchArgs {
   name: string
   keywords?: string
   location?: string
+  geoId?: string
+  distanceKm?: number
   sortByRecent?: boolean
   easyApplyOnly?: boolean
 }
@@ -51,13 +57,15 @@ export function createSavedSearch(
   const result = db
     .prepare(
       `INSERT INTO linkedin_saved_searches
-        (name, keywords, location, sort_by_recent, easy_apply_only, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+        (name, keywords, location, geo_id, distance_km, sort_by_recent, easy_apply_only, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       args.name,
       args.keywords ?? null,
       args.location ?? null,
+      args.geoId ?? null,
+      args.distanceKm ?? null,
       args.sortByRecent ? 1 : 0,
       args.easyApplyOnly ? 1 : 0,
       new Date().toISOString()

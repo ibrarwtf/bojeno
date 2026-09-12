@@ -13,6 +13,7 @@ import linkedinSavedSearchesSql from './migrations/20260912T0000_linkedin_saved_
 import runLogsRicherDetailSql from './migrations/20260912T0100_run_logs_richer_detail.sql?raw'
 import jobSnapshotsAndUnmatchedQuestionsSql from './migrations/20260912T0200_job_snapshots_and_unmatched_questions.sql?raw'
 import unmatchedQuestionsContextSql from './migrations/20260912T0300_unmatched_questions_context.sql?raw'
+import savedSearchGeoAndYearsSql from './migrations/20260912T0400_saved_search_geo_and_years.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -26,7 +27,8 @@ const migrations: Migration[] = [
     id: '20260912T0200_job_snapshots_and_unmatched_questions.sql',
     sql: jobSnapshotsAndUnmatchedQuestionsSql
   },
-  { id: '20260912T0300_unmatched_questions_context.sql', sql: unmatchedQuestionsContextSql }
+  { id: '20260912T0300_unmatched_questions_context.sql', sql: unmatchedQuestionsContextSql },
+  { id: '20260912T0400_saved_search_geo_and_years.sql', sql: savedSearchGeoAndYearsSql }
 ]
 
 let db: DatabaseSync | undefined

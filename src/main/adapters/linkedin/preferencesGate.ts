@@ -30,5 +30,13 @@ export function evaluateApplicantPreference(
     return `applicant insight total ${total} meets preference cap of ${preferences.maxApplicantInsightTotal}`
   }
 
+  if (
+    preferences.maxYearsRequired !== undefined &&
+    details.yearsRequired !== null &&
+    details.yearsRequired > preferences.maxYearsRequired
+  ) {
+    return `JD requires ${details.yearsRequired} years, over preference cap of ${preferences.maxYearsRequired}`
+  }
+
   return undefined
 }

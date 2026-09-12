@@ -52,6 +52,8 @@ export interface CreateSavedSearchArgs {
   name: string
   keywords?: string
   location?: string
+  geoId?: string
+  distanceKm?: number
   sortByRecent?: boolean
   easyApplyOnly?: boolean
 }

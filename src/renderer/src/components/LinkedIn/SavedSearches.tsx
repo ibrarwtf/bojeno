@@ -26,6 +26,7 @@ export function SavedSearches({
   const [keywords, setKeywords] = useState('')
   const [location, setLocation] = useState('')
   const [runningId, setRunningId] = useState<number | undefined>()
+  const [dryRun, setDryRun] = useState(true)
 
   useEffect(() => {
     void refresh()
@@ -55,18 +56,19 @@ export function SavedSearches({
     await refresh()
   }
 
-  // Runs a plain scan (no apply) against the search's own params, then marks it run.
-  // Standing in for the real Auto Apply flow (Run/Schedule, dry-run vs. live) that's
-  // a later phase - this just proves the saved params actually drive a LinkedIn
-  // search today.
   async function run(search: LinkedinSavedSearch): Promise<void> {
     setRunningId(search.id)
     try {
-      await window.bojeno.scanJobs({
-        keywords: search.keywords ?? undefined,
-        location: search.location ?? undefined,
-        sortByRecent: search.sortByRecent,
-        easyApplyOnly: search.easyApplyOnly
+      await window.bojeno.runSequentialSearch({
+        params: {
+          keywords: search.keywords ?? undefined,
+          location: search.location ?? undefined,
+          geoId: search.geoId ?? undefined,
+          distanceKm: search.distanceKm ?? undefined,
+          sortByRecent: search.sortByRecent,
+          easyApplyOnly: search.easyApplyOnly
+        },
+        dryRun
       })
       await window.bojeno.touchSavedSearchLastRun(search.id)
       await refresh()
@@ -79,6 +81,10 @@ export function SavedSearches({
     <div className="linkedin-saved-searches">
       <div className="linkedin-saved-searches-header">
         <span>Saved Searches</span>
+        <label className="linkedin-saved-searches-dry-run">
+          <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+          Dry run
+        </label>
         <button onClick={() => setCreating((v) => !v)}>+ New Search</button>
       </div>
 

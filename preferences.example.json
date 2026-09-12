@@ -1,4 +1,5 @@
 {
   "maxApplicantCount": 100,
-  "maxApplicantInsightTotal": 200
+  "maxApplicantInsightTotal": 200,
+  "maxYearsRequired": 4
 }

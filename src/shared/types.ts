@@ -96,6 +96,9 @@ export interface LinkedinSavedSearch {
   name: string
   keywords: string | null
   location: string | null
+  /** LinkedIn's own numeric id for a resolved place - see SearchUrlParams.geoId. */
+  geoId: string | null
+  distanceKm: number | null
   sortByRecent: boolean
   easyApplyOnly: boolean
   createdAt: string
