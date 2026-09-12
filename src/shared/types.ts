@@ -188,6 +188,7 @@ export interface UnmatchedQuestionRow {
   resolved: boolean
   answer: string | null
   runId: string | null
+  notifiedAt: string | null
 }
 
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */

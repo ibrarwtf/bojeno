@@ -27,6 +27,7 @@ interface UnmatchedQuestionRowRaw {
   resolved: number
   answer: string | null
   run_id: string | null
+  notified_at: string | null
 }
 
 function toRow(row: UnmatchedQuestionRowRaw): UnmatchedQuestionRow {
@@ -42,34 +43,42 @@ function toRow(row: UnmatchedQuestionRowRaw): UnmatchedQuestionRow {
     detectedAt: row.detected_at,
     resolved: row.resolved === 1,
     answer: row.answer,
-    runId: row.run_id
+    runId: row.run_id,
+    notifiedAt: row.notified_at
   }
 }
 
-/** One row per apply-modal question the answer bank couldn't match - for later review, not auto-resolved. */
-export function insertUnmatchedQuestion(db: DatabaseSync, args: UnmatchedQuestionArgs): void {
-  db.prepare(
-    `INSERT INTO unmatched_questions
-      (platform, external_job_id, job_url, job_title, company, question_kind, question_label, detected_at, resolved, run_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-  ).run(
-    args.platform,
-    args.externalJobId,
-    args.jobUrl,
-    args.jobTitle ?? null,
-    args.company ?? null,
-    args.questionKind,
-    args.questionLabel,
-    new Date().toISOString(),
-    args.runId ?? null
-  )
+/**
+ * One row per apply-modal question the answer bank couldn't match - for
+ * later review, not auto-resolved. Returns the new row's id so a caller
+ * (see notifications/unmatchedQuestionNotifier.ts) can mark it notified.
+ */
+export function insertUnmatchedQuestion(db: DatabaseSync, args: UnmatchedQuestionArgs): number {
+  const result = db
+    .prepare(
+      `INSERT INTO unmatched_questions
+        (platform, external_job_id, job_url, job_title, company, question_kind, question_label, detected_at, resolved, run_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+    )
+    .run(
+      args.platform,
+      args.externalJobId,
+      args.jobUrl,
+      args.jobTitle ?? null,
+      args.company ?? null,
+      args.questionKind,
+      args.questionLabel,
+      new Date().toISOString(),
+      args.runId ?? null
+    )
+  return Number(result.lastInsertRowid)
 }
 
 /** Most recent first, for a future review screen. */
 export function listUnresolvedUnmatchedQuestions(db: DatabaseSync): UnmatchedQuestionRow[] {
   const rows = db
     .prepare(
-      `SELECT id, platform, external_job_id, job_url, job_title, company, question_kind, question_label, detected_at, resolved, answer, run_id
+      `SELECT id, platform, external_job_id, job_url, job_title, company, question_kind, question_label, detected_at, resolved, answer, run_id, notified_at
        FROM unmatched_questions WHERE resolved = 0 ORDER BY id DESC`
     )
     .all() as unknown as UnmatchedQuestionRowRaw[]
@@ -78,4 +87,34 @@ export function listUnresolvedUnmatchedQuestions(db: DatabaseSync): UnmatchedQue
 
 export function resolveUnmatchedQuestion(db: DatabaseSync, id: number, answer: string): void {
   db.prepare('UPDATE unmatched_questions SET resolved = 1, answer = ? WHERE id = ?').run(answer, id)
+}
+
+/**
+ * True when an unresolved row already exists for this exact
+ * platform/job/question and was already notified about - guards against
+ * re-notifying for the same outstanding question (e.g. a retried apply
+ * attempt hitting it again).
+ */
+export function hasNotifiedUnresolvedQuestion(
+  db: DatabaseSync,
+  platform: Platform,
+  externalJobId: string,
+  questionLabel: string
+): boolean {
+  const row = db
+    .prepare(
+      `SELECT 1 FROM unmatched_questions
+       WHERE platform = ? AND external_job_id = ? AND question_label = ?
+         AND resolved = 0 AND notified_at IS NOT NULL
+       LIMIT 1`
+    )
+    .get(platform, externalJobId, questionLabel)
+  return row !== undefined
+}
+
+export function markUnmatchedQuestionNotified(db: DatabaseSync, id: number): void {
+  db.prepare('UPDATE unmatched_questions SET notified_at = ? WHERE id = ?').run(
+    new Date().toISOString(),
+    id
+  )
 }
