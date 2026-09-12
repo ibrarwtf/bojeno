@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { RunLogRow } from '../../../../shared/types'
+import { Button } from '@renderer/components/ui/button'
+import { cn } from '@renderer/lib/utils'
 
 const POLL_MS = 3000
 
@@ -58,9 +60,18 @@ function statusWord(row: RunLogRow): string {
   }
 }
 
-/** CSS-safe modifier for statusWord()'s text, e.g. "review needed" -> "review-needed". */
+/** Tailwind color classes for statusWord()'s text, grouped by outcome family. */
 function statusWordClass(row: RunLogRow): string {
-  return statusWord(row).replace(/\s+/g, '-')
+  const word = statusWord(row)
+  if (['success', 'done', 'applied'].includes(word)) return 'text-success'
+  if (word === 'dryrun') return 'text-sky-400'
+  if (['review', 'skipped', 'already applied', 'title mismatch'].includes(word)) {
+    return 'text-warning'
+  }
+  if (['failed', 'error', 'auth required', 'auth_required', 'rate limited'].includes(word)) {
+    return 'text-destructive'
+  }
+  return 'text-muted-foreground'
 }
 
 const TITLE_FILTER_REASON_PREFIX = 'title filter rejected: '
@@ -183,20 +194,23 @@ export function LogPanel(): React.JSX.Element {
   const groups = cleared ? [] : groupByRun(logs)
 
   return (
-    <div className="log-panel">
-      <div className="log-panel-header">
+    <div className="fixed bottom-0 right-0 left-[360px] z-10 flex h-40 flex-col border-t border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
         <span>Live Logs (Current Run)</span>
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-xs"
           onClick={() => {
             setCleared(true)
           }}
         >
           Clear
-        </button>
+        </Button>
       </div>
-      <div className="log-panel-body">
+      <div className="flex-1 cursor-text overflow-y-auto px-3 py-1.5 font-mono text-xs select-text">
         {groups.length === 0 ? (
-          <p className="log-panel-empty">No activity yet</p>
+          <p className="text-muted-foreground">No activity yet</p>
         ) : (
           groups.map((group) => {
             const key = group.runId ?? `${group.rows[0].timestamp}-${group.rows[0].script}`
@@ -207,18 +221,18 @@ export function LogPanel(): React.JSX.Element {
             if (!group.runId) {
               const row = group.rows[0]
               return (
-                <div key={key} className="log-panel-row">
-                  <span className="log-panel-time">
+                <div key={key} className="flex gap-2 py-0.5 whitespace-nowrap">
+                  <span className="text-muted-foreground">
                     {new Date(row.timestamp).toLocaleTimeString()}
                   </span>
-                  <span className={`log-panel-outcome log-panel-outcome-${statusWordClass(row)}`}>
-                    {statusWord(row)}
-                  </span>
-                  <span className="log-panel-job">
+                  <span className={statusWordClass(row)}>{statusWord(row)}</span>
+                  <span className="text-foreground">
                     {row.jobTitle ?? SCRIPT_LABELS[row.script] ?? row.script}
                   </span>
-                  <span className="log-panel-company">{companyLabel(row)}</span>
-                  <span className="log-panel-detail">{remark(row)}</span>
+                  <span className="text-muted-foreground">{companyLabel(row)}</span>
+                  <span className="overflow-hidden text-ellipsis text-muted-foreground">
+                    {remark(row)}
+                  </span>
                 </div>
               )
             }
@@ -238,37 +252,41 @@ export function LogPanel(): React.JSX.Element {
             const jobRows = group.rows.filter((r) => r.entityId).reverse()
 
             return (
-              <div key={key} className="log-panel-group">
-                <div className="log-panel-row">
-                  <span className="log-panel-time">
+              <div key={key} className="mb-1 border-b border-border pb-1">
+                <div className="flex gap-2 py-0.5 whitespace-nowrap">
+                  <span className="text-muted-foreground">
                     {new Date((summaryRow ?? jobRows[0]).timestamp).toLocaleTimeString()}
                   </span>
                   <span
-                    className={`log-panel-outcome log-panel-outcome-${summaryRow ? statusWordClass(summaryRow) : 'pending'}`}
+                    className={cn(
+                      summaryRow ? statusWordClass(summaryRow) : 'text-muted-foreground italic'
+                    )}
                   >
                     {summary ? 'Saved Run' : summaryRow ? statusWord(summaryRow) : 'in progress'}
                   </span>
                   {summary ? (
                     <>
-                      <span className="log-panel-job">{summary.name}</span>
-                      <span className="log-panel-company">{summary.stopCondition}</span>
-                      <span className="log-panel-detail">{summary.stats}</span>
+                      <span className="text-foreground">{summary.name}</span>
+                      <span className="text-muted-foreground">{summary.stopCondition}</span>
+                      <span className="text-muted-foreground">{summary.stats}</span>
                     </>
                   ) : (
-                    summaryRow && <span className="log-panel-detail">{remark(summaryRow)}</span>
+                    summaryRow && (
+                      <span className="text-muted-foreground">{remark(summaryRow)}</span>
+                    )
                   )}
                 </div>
                 {jobRows.map((row, i) => (
-                  <div key={i} className="log-panel-row log-panel-row-job">
-                    <span className="log-panel-time">
+                  <div key={i} className="flex gap-2 py-0.5 pl-4 whitespace-nowrap">
+                    <span className="text-muted-foreground">
                       {new Date(row.timestamp).toLocaleTimeString()}
                     </span>
-                    <span className={`log-panel-outcome log-panel-outcome-${statusWordClass(row)}`}>
-                      {statusWord(row)}
+                    <span className={statusWordClass(row)}>{statusWord(row)}</span>
+                    <span className="text-foreground">{row.jobTitle ?? row.entityId}</span>
+                    <span className="text-muted-foreground">{companyLabel(row)}</span>
+                    <span className="overflow-hidden text-ellipsis text-muted-foreground">
+                      {remark(row)}
                     </span>
-                    <span className="log-panel-job">{row.jobTitle ?? row.entityId}</span>
-                    <span className="log-panel-company">{companyLabel(row)}</span>
-                    <span className="log-panel-detail">{remark(row)}</span>
                   </div>
                 ))}
               </div>

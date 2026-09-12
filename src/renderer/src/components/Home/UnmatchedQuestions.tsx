@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { UnmatchedQuestionRow } from '../../../../shared/types'
+import { Card, CardContent, CardHeader, CardTitle } from '@renderer/components/ui/card'
+import { Input } from '@renderer/components/ui/input'
+import { Button } from '@renderer/components/ui/button'
 
 // TODO: open-ended/explain-style questions ("describe a RAG system you've
 // built", etc.) get a free-text box here same as everything else, but a
@@ -59,38 +62,40 @@ export function UnmatchedQuestions(): React.JSX.Element {
   }
 
   return (
-    <div className="unmatched-questions">
-      <div className="unmatched-questions-header">Unmatched Questions</div>
+    <div className="mt-4">
+      <h2 className="mb-2 font-semibold">Unmatched Questions</h2>
       {groups.length === 0 ? (
-        <p className="home-empty">No questions to review</p>
+        <p className="text-muted-foreground">No questions to review</p>
       ) : (
-        <div className="unmatched-questions-list">
+        <div className="flex flex-col gap-3">
           {groups.map((group) => {
             const example = group.rows[0]
             return (
-              <div className="unmatched-questions-item" key={group.questionLabel}>
-                <div className="unmatched-questions-item-label">{group.questionLabel}</div>
-                <div className="unmatched-questions-item-meta">
-                  {example.jobTitle ?? 'Unknown title'} · {example.company ?? 'Unknown company'}
-                </div>
-                <div className="unmatched-questions-item-form">
-                  <input
+              <Card key={group.questionLabel}>
+                <CardHeader className="gap-1">
+                  <CardTitle>{group.questionLabel}</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {example.jobTitle ?? 'Unknown title'} · {example.company ?? 'Unknown company'}
+                  </p>
+                </CardHeader>
+                <CardContent className="flex gap-2">
+                  <Input
                     placeholder="Answer"
                     value={answers[group.questionLabel] ?? ''}
                     onChange={(e) =>
                       setAnswers((prev) => ({ ...prev, [group.questionLabel]: e.target.value }))
                     }
                   />
-                  <button
+                  <Button
                     onClick={() => void save(group)}
                     disabled={
                       saving === group.questionLabel || !(answers[group.questionLabel] ?? '').trim()
                     }
                   >
                     Save
-                  </button>
-                </div>
-              </div>
+                  </Button>
+                </CardContent>
+              </Card>
             )
           })}
         </div>
