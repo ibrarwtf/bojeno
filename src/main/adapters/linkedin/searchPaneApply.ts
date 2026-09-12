@@ -25,8 +25,11 @@ import {
   parseClickedApplyCount,
   hasFitSignal,
   extractBetween,
-  nextHeadingAfter
+  nextHeadingAfter,
+  extractEmails,
+  extractPhones
 } from './jobDetails'
+import { findJobPosterBlockInPage, parseJobPosterBlock } from './jobPoster'
 import { stepThroughEasyApplyModal, dismissApplyConfirmation } from './apply'
 import { jobUrlFor } from './adapter'
 
@@ -128,15 +131,16 @@ export async function selectJobCard(jobId: string): Promise<void> {
 export async function captureActiveJobDetails(jobId: string): Promise<JobDetails> {
   const page = await findPageByUrlPart('linkedin.com')
 
-  const { text, company, headings } = await page.evaluate((selector) => {
+  const { text, company, companyUrl, headings } = await page.evaluate((selector) => {
     const pane = document.querySelector(selector) as HTMLElement | null
     const scope: ParentNode = pane ?? document
+    const companyLink = Array.from(
+      scope.querySelectorAll<HTMLAnchorElement>('a[href*="/company/"]')
+    ).find((a) => (a.textContent?.trim().length ?? 0) > 1)
     return {
       text: pane?.innerText ?? '',
-      company:
-        Array.from(scope.querySelectorAll<HTMLAnchorElement>('a[href*="/company/"]'))
-          .map((a) => a.textContent?.trim() ?? '')
-          .find((value) => value.length > 1) ?? '',
+      company: companyLink?.textContent?.trim() ?? '',
+      companyUrl: companyLink ? companyLink.href.split('?')[0] : null,
       headings: Array.from(scope.querySelectorAll('h2, h3'))
         .map((el) => el.textContent?.trim() ?? '')
         .filter(Boolean)
@@ -158,22 +162,31 @@ export async function captureActiveJobDetails(jobId: string): Promise<JobDetails
     'Applicants for this job',
     applicantsForJobStop ? [applicantsForJobStop] : SECTION_STOP_MARKERS
   )
+  const descriptionText =
+    extractBetween(
+      text,
+      'About the job',
+      descriptionStop ? [descriptionStop] : SECTION_STOP_MARKERS
+    ) ?? ''
+
+  // "Meet the hiring team" - present on many postings in this pane, absent on
+  // many others; findJobPosterBlockInPage returns null rather than throwing.
+  const posterBlock = await page
+    .evaluate(findJobPosterBlockInPage, DETAIL_PANE_SELECTOR)
+    .catch(() => null)
+  const posterInfo = posterBlock ? parseJobPosterBlock(posterBlock.blockText) : null
 
   return {
     jobUrl: jobUrlFor(jobId),
     company: company || firstLine,
+    companyUrl,
     title,
     postedRelative: parsePostedRelative(text),
     clickedApplyCount: parseClickedApplyCount(text),
     applicantCount: parseApplicantCount(text),
     hasFitSignal: hasFitSignal(text),
     yearsRequired: parseYearsRequired(text),
-    descriptionText:
-      extractBetween(
-        text,
-        'About the job',
-        descriptionStop ? [descriptionStop] : SECTION_STOP_MARKERS
-      ) ?? '',
+    descriptionText,
     applicantInsightsText: extractBetween(
       text,
       'Candidates who clicked apply',
@@ -181,7 +194,12 @@ export async function captureActiveJobDetails(jobId: string): Promise<JobDetails
     ),
     applicantInsightCounts: applicantsForJobSection
       ? parseApplicantInsightCounts(applicantsForJobSection)
-      : null
+      : null,
+    contactEmails: extractEmails(descriptionText),
+    contactPhones: extractPhones(descriptionText),
+    jobPosterName: posterInfo?.name ?? null,
+    jobPosterTitle: posterInfo?.title ?? null,
+    jobPosterProfileUrl: posterBlock?.profileUrl ?? null
   }
 }
 

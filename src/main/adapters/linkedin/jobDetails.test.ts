@@ -8,7 +8,9 @@ import {
   parseClickedApplyCount,
   hasFitSignal,
   extractBetween,
-  nextHeadingAfter
+  nextHeadingAfter,
+  extractEmails,
+  extractPhones
 } from './jobDetails'
 
 // Trimmed from a real job page's `main.innerText`, captured live this session.
@@ -163,6 +165,58 @@ describe('nextHeadingAfter', () => {
 
   it('returns null when the marker is absent', () => {
     expect(nextHeadingAfter(HEADINGS, 'not a real heading')).toBeNull()
+  })
+})
+
+describe('extractEmails', () => {
+  it('extracts a plain hiring inbox address', () => {
+    expect(extractEmails('Send the following to hiring@vanexson.com')).toEqual([
+      'hiring@vanexson.com'
+    ])
+  })
+
+  it('extracts multiple addresses, deduped and case-insensitively', () => {
+    const text = 'Email HR@Company.com or reach out to hr@company.com or jobs@company.io'
+    expect(extractEmails(text)).toEqual(['HR@Company.com', 'jobs@company.io'])
+  })
+
+  it('filters out LinkedIn/asset/placeholder junk addresses', () => {
+    const text = 'noreply@licdn.com and support@example.com and real@company.com'
+    expect(extractEmails(text)).toEqual(['real@company.com'])
+  })
+
+  it('returns an empty array when no email is present', () => {
+    expect(extractEmails(FIXTURE)).toEqual([])
+  })
+})
+
+describe('extractPhones', () => {
+  it('extracts an international number with a space after the country code', () => {
+    expect(extractPhones('Contact us at +91 8591450377 for details')).toEqual(['+91 8591450377'])
+  })
+
+  it('extracts an international number with no separators', () => {
+    expect(extractPhones('Phone +918591450377')).toEqual(['+918591450377'])
+  })
+
+  it('extracts a US-style parenthesized number', () => {
+    expect(extractPhones('Call (415) 555-0100 anytime')).toEqual(['(415) 555-0100'])
+  })
+
+  it('does not match a "N+ years" requirement', () => {
+    expect(extractPhones('Requires 4+ years of experience')).toEqual([])
+  })
+
+  it('does not match an applicant count', () => {
+    expect(extractPhones('352 Applicants for this job')).toEqual([])
+  })
+
+  it('does not match a bare short number with no country code or area-code format', () => {
+    expect(extractPhones('Reference number 8591450377')).toEqual([])
+  })
+
+  it('returns an empty array when no phone is present', () => {
+    expect(extractPhones(FIXTURE)).toEqual([])
   })
 })
 

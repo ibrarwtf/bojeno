@@ -108,6 +108,57 @@ export function nextHeadingAfter(headings: string[], marker: string): string | n
  * heading (via nextHeadingAfter) first, with a small fixed list as a
  * fallback only for when the heading structure itself is missing.
  */
+/**
+ * Ported from afterq/tools/find-hiring-posts.mjs's EMAIL_RE/JUNK approach -
+ * a plain email regex plus a junk filter for addresses that are obviously
+ * not a human application inbox (LinkedIn's own asset/tracking domains,
+ * placeholder addresses). Dedupes and lowercases nothing - callers get back
+ * exactly what was printed on the page.
+ */
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
+const EMAIL_JUNK_RE = /(example|sentry|linkedin\.com|licdn|\.png|\.jpg|@2x|noreply|no-reply)/i
+
+export function extractEmails(text: string): string[] {
+  const found = text.match(EMAIL_RE) ?? []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const email of found) {
+    if (EMAIL_JUNK_RE.test(email)) continue
+    const key = email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(email)
+  }
+  return out
+}
+
+/**
+ * Conservative international-friendly phone matcher - false negatives are
+ * fine (this is a bonus signal, not the primary path), but it must not
+ * match years, applicant counts, or other bare short numbers scattered
+ * through a JD. Requires either a leading `+<country code>` (e.g.
+ * "+91 8591450377", "+918591450377") or a parenthesized US-style area code
+ * ("(415) 555-0100"), each followed by enough digits (7-13, allowing
+ * spaces/dashes/dots as separators) that a bare "4+ years" or "352
+ * Applicants" can never qualify.
+ */
+const PHONE_RE = /(?:\+\d{1,3}[\s.-]?(?:\d[\s.-]?){7,12}\d|\(\d{3}\)[\s.-]?\d{3}[\s.-]?\d{4})/g
+
+export function extractPhones(text: string): string[] {
+  const found = text.match(PHONE_RE) ?? []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of found) {
+    const phone = raw.trim()
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length < 8 || digits.length > 15) continue
+    if (seen.has(phone)) continue
+    seen.add(phone)
+    out.push(phone)
+  }
+  return out
+}
+
 export function extractBetween(
   text: string,
   startMarker: string,
