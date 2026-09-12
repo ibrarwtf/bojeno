@@ -57,6 +57,8 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl),
   scanJobs: (params: ScanJobsArgs): Promise<ScannedJobCard[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
+  resolveCompanyId: (name: string): Promise<string | null> =>
+    ipcRenderer.invoke(IpcChannels.linkedinResolveCompanyId, name),
   applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
   runSequentialSearch: (args: RunSequentialSearchArgs): Promise<SequentialRunSummary> =>

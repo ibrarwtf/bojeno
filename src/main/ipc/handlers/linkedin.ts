@@ -17,8 +17,8 @@ import { insertApplyAttempt } from '../../db/queries/applyAttempts'
 import { isCompanyBlacklisted, blacklistReason } from '../../db/queries/companyBlacklist'
 import { insertJobSnapshot } from '../../db/queries/jobSnapshots'
 import { insertUnmatchedQuestion } from '../../db/queries/unmatchedQuestions'
-import { upsertCompany } from '../../db/queries/companies'
-import { fetchCompanyAboutInfo } from '../../adapters/linkedin/company'
+import { upsertCompany, getCompanyByName } from '../../db/queries/companies'
+import { fetchCompanyAboutInfo, searchCompanyByName } from '../../adapters/linkedin/company'
 import {
   listSavedSearches,
   createSavedSearch,
@@ -167,6 +167,42 @@ async function captureCompanyInfoIfApplied(
   }
 }
 
+/**
+ * Resolves a company name to its LinkedIn numeric id, checking the
+ * `companies` table (populated by real applies and the GCC research import
+ * - see scripts/import-gcc-companies.cjs) before ever hitting the network.
+ * Only live-searches LinkedIn (searchCompanyByName) on a cache miss, and
+ * persists what it finds so the next call for the same name is free.
+ */
+async function resolveCompanyId(db: DatabaseSync, name: string): Promise<string | null> {
+  const cached = getCompanyByName(db, name)
+  if (cached?.linkedinCompanyId) return cached.linkedinCompanyId
+
+  const page = await findPageByUrlPart('linkedin.com')
+  const found = await searchCompanyByName(page, name)
+  if (!found) return null
+
+  upsertCompany(db, {
+    linkedinCompanyId: found.linkedinCompanyId,
+    name: found.name,
+    url: found.url,
+    website: null,
+    industry: null,
+    companySize: null,
+    founded: null,
+    specialties: null,
+    overview: null,
+    hqCountry: null,
+    indiaCities: null,
+    careersUrl: null,
+    ats: null,
+    status: null,
+    skipReason: null,
+    remark: null
+  })
+  return found.linkedinCompanyId
+}
+
 export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinCheckLogin, () =>
     withLock('linkedin', async () => {
@@ -288,6 +324,13 @@ export function registerLinkedinHandlers(): void {
     withLock('linkedin', () => {
       ensurePlatformViewLoaded('linkedin')
       return captureJobDetails(jobUrl)
+    })
+  )
+
+  ipcMain.handle(IpcChannels.linkedinResolveCompanyId, (_event, name: string) =>
+    withLock('linkedin', () => {
+      ensurePlatformViewLoaded('linkedin')
+      return resolveCompanyId(getDb(), name)
     })
   )
 

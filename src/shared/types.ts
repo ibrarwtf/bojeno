@@ -141,6 +141,12 @@ export interface SearchUrlParams {
   experienceLevels?: ExperienceLevel[]
   jobTypes?: JobType[]
   workplaceTypes?: WorkplaceType[]
+  /** LinkedIn's own numeric company ids (f_C) - scopes the search to exactly
+   *  these companies, comma-joined. Confirmed live: works alongside
+   *  keywords/location/etc., no practical limit on how many ids. See
+   *  resolveCompanyId in company.ts for turning a plain company name into
+   *  one of these. */
+  companyIds?: string[]
 }
 
 /**
