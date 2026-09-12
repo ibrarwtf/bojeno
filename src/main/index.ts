@@ -8,32 +8,54 @@ import { registerNaukriHandlers } from './ipc/handlers/naukri'
 import { registerPlatformHandlers } from './ipc/handlers/platform'
 import { registerTrackerHandlers } from './ipc/handlers/tracker'
 
-// Must run before app.whenReady() — Chromium only honors this switch pre-init.
-setupRemoteDebugging()
+// A second launch (a leftover process from an unclean previous dev session,
+// or the app opened twice by hand) would otherwise run fully independently
+// against the SAME sqlite file and open its own CDP debug port - two windows
+// silently racing each other over the same DB and the same LinkedIn tab,
+// exactly the class of bug `npm run dev`'s own kill-stray-process step exists
+// to paper over for the dev case. This refuses that outright for every case,
+// not just dev: the second process exits immediately below instead of
+// proceeding, and the first process's existing window is focused instead.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.bojeno.app')
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const [existingWindow] = BrowserWindow.getAllWindows()
+    if (existingWindow) {
+      if (existingWindow.isMinimized()) existingWindow.restore()
+      existingWindow.focus()
+    }
   })
 
-  getDb()
+  // Must run before app.whenReady() — Chromium only honors this switch pre-init.
+  setupRemoteDebugging()
 
-  registerLinkedinHandlers()
-  registerNaukriHandlers()
-  registerPlatformHandlers()
-  registerTrackerHandlers()
+  app.whenReady().then(() => {
+    electronApp.setAppUserModelId('com.bojeno.app')
 
-  createWindow()
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
 
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    getDb()
+
+    registerLinkedinHandlers()
+    registerNaukriHandlers()
+    registerPlatformHandlers()
+    registerTrackerHandlers()
+
+    createWindow()
+
+    app.on('activate', function () {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
-})
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+}

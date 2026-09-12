@@ -6,7 +6,13 @@ import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
 
 export default defineConfig(
-  { ignores: ['**/node_modules', '**/dist', '**/out'] },
+  // .claude/worktrees holds other agents' isolated git worktree checkouts,
+  // nested under this repo root - without this, `eslint .` walks into
+  // whatever branch is checked out there too and lint failures in a
+  // completely unrelated in-flight change block this one's own `npm run
+  // check` (confirmed live: a concurrent worktree's scripts/*.cjs tripped
+  // no-require-imports here).
+  { ignores: ['**/node_modules', '**/dist', '**/out', '.claude/worktrees'] },
   tseslint.configs.recommended,
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],
