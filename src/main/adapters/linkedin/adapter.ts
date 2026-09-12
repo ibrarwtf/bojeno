@@ -19,8 +19,11 @@ import {
   parseClickedApplyCount,
   hasFitSignal,
   extractBetween,
-  nextHeadingAfter
+  nextHeadingAfter,
+  extractEmails,
+  extractPhones
 } from './jobDetails'
+import { findJobPosterBlockInPage, parseJobPosterBlock } from './jobPoster'
 import { buildSearchUrl, parseCardFromLeaves } from './scan'
 import { buildApplyUrl, stepThroughEasyApplyModal } from './apply'
 
@@ -165,16 +168,19 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
     })
     .catch(() => undefined)
 
-  const { text, company, headings } = await page.evaluate(() => ({
-    text: (document.querySelector('main') as HTMLElement | null)?.innerText ?? '',
-    company:
-      Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="/company/"]'))
-        .map((a) => a.textContent?.trim() ?? '')
-        .find((value) => value.length > 1) ?? '',
-    headings: Array.from(document.querySelectorAll('h2, h3'))
-      .map((el) => el.textContent?.trim() ?? '')
-      .filter(Boolean)
-  }))
+  const { text, company, companyUrl, headings } = await page.evaluate(() => {
+    const companyLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('a[href*="/company/"]')
+    ).find((a) => (a.textContent?.trim().length ?? 0) > 1)
+    return {
+      text: (document.querySelector('main') as HTMLElement | null)?.innerText ?? '',
+      company: companyLink?.textContent?.trim() ?? '',
+      companyUrl: companyLink ? companyLink.href.split('?')[0] : null,
+      headings: Array.from(document.querySelectorAll('h2, h3'))
+        .map((el) => el.textContent?.trim() ?? '')
+        .filter(Boolean)
+    }
+  })
 
   const [firstLine = '', secondLine = ''] = text
     .split('\n')
@@ -190,22 +196,29 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
     'Applicants for this job',
     applicantsForJobStop ? [applicantsForJobStop] : SECTION_STOP_MARKERS
   )
+  const descriptionText =
+    extractBetween(
+      text,
+      'About the job',
+      descriptionStop ? [descriptionStop] : SECTION_STOP_MARKERS
+    ) ?? ''
+
+  // "Meet the hiring team" - present on many postings, absent on many others;
+  // findJobPosterBlockInPage returns null rather than throwing when it's not there.
+  const posterBlock = await page.evaluate(findJobPosterBlockInPage, 'main').catch(() => null)
+  const posterInfo = posterBlock ? parseJobPosterBlock(posterBlock.blockText) : null
 
   return {
     jobUrl,
     company: company || firstLine,
+    companyUrl,
     title,
     postedRelative: parsePostedRelative(text),
     clickedApplyCount: parseClickedApplyCount(text),
     applicantCount: parseApplicantCount(text),
     hasFitSignal: hasFitSignal(text),
     yearsRequired: parseYearsRequired(text),
-    descriptionText:
-      extractBetween(
-        text,
-        'About the job',
-        descriptionStop ? [descriptionStop] : SECTION_STOP_MARKERS
-      ) ?? '',
+    descriptionText,
     applicantInsightsText: extractBetween(
       text,
       'Candidates who clicked apply',
@@ -213,7 +226,12 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
     ),
     applicantInsightCounts: applicantsForJobSection
       ? parseApplicantInsightCounts(applicantsForJobSection)
-      : null
+      : null,
+    contactEmails: extractEmails(descriptionText),
+    contactPhones: extractPhones(descriptionText),
+    jobPosterName: posterInfo?.name ?? null,
+    jobPosterTitle: posterInfo?.title ?? null,
+    jobPosterProfileUrl: posterBlock?.profileUrl ?? null
   }
 }
 

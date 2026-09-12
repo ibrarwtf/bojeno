@@ -188,6 +188,8 @@ export interface UnmatchedQuestionRow {
 export interface JobDetails {
   jobUrl: string
   company: string
+  /** The company's own LinkedIn page URL, off the posting's `a[href*="/company/"]` link - null if that link wasn't found. */
+  companyUrl: string | null
   title: string
   postedRelative: string | null
   clickedApplyCount: string | null
@@ -203,4 +205,25 @@ export interface JobDetails {
    * Only appears on some postings; both fields are null when it's absent.
    */
   applicantInsightCounts: { total: number | null; pastDay: number | null } | null
+  /** Email addresses found in the JD text - e.g. "Send the following to hiring@company.com". */
+  contactEmails: string[]
+  /** Phone numbers found in the JD text - conservative match, false negatives are fine. */
+  contactPhones: string[]
+  /** The "Meet the hiring team" block's person, when present on this posting - absent on many. */
+  jobPosterName: string | null
+  jobPosterTitle: string | null
+  jobPosterProfileUrl: string | null
+}
+
+/** Parsed out of a LinkedIn company's /about page - see companies table (db/queries/companies.ts). */
+export interface CompanyAboutInfo {
+  linkedinCompanyId: string | null
+  name: string | null
+  url: string
+  website: string | null
+  industry: string | null
+  companySize: string | null
+  founded: string | null
+  specialties: string | null
+  overview: string | null
 }

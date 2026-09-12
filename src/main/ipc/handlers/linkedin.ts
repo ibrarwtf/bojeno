@@ -8,6 +8,7 @@ import type {
 import type { ApplyResult, JobDetails, RunMode } from '../../../shared/types'
 import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
+import { findPageByUrlPart, gotoWithRetry } from '../../cdp'
 import { getDb } from '../../db'
 import { insertRunLog } from '../../db/queries/runLogs'
 import { insertAppliedCount } from '../../db/queries/appliedCounts'
@@ -16,6 +17,8 @@ import { insertApplyAttempt } from '../../db/queries/applyAttempts'
 import { isCompanyBlacklisted, blacklistReason } from '../../db/queries/companyBlacklist'
 import { insertJobSnapshot } from '../../db/queries/jobSnapshots'
 import { insertUnmatchedQuestion } from '../../db/queries/unmatchedQuestions'
+import { upsertCompany } from '../../db/queries/companies'
+import { fetchCompanyAboutInfo } from '../../adapters/linkedin/company'
 import {
   listSavedSearches,
   createSavedSearch,
@@ -108,6 +111,58 @@ function recordUnmatchedQuestionIfAny(
       questionKind: question.kind,
       questionLabel: question.label,
       runId
+    })
+  }
+}
+
+/**
+ * Fires only for a real 'applied' outcome - never dry_run_ok, needs_review,
+ * skipped, or error - since a company's /about page is only worth capturing
+ * once an application actually went out. This is a real page navigation, so
+ * it MUST run using the caller's already-locked page/context rather than
+ * taking its own withLock('linkedin', ...) - both call sites below already
+ * run inside that lock (linkedinApplyToJob's whole handler body, and
+ * runSequentialSearch's hooks object, itself inside the same lock), and
+ * withLock (src/main/lock.ts) isn't reentrant: a nested call on the same id
+ * would queue behind the still-running outer call and deadlock, since the
+ * outer call can't finish until this nested call does.
+ *
+ * `restoreUrl`, when given, navigates back to it afterward - needed for the
+ * sequential-run path, which stays on the search-results page between jobs
+ * and would otherwise strand the next selectJobCard() on the company's
+ * /about page instead. The single-job apply path passes no restoreUrl since
+ * nothing else in that handler depends on the page's URL afterward.
+ * Best-effort throughout: a failure here must never fail the apply itself,
+ * which has already succeeded by the time this runs.
+ */
+async function captureCompanyInfoIfApplied(
+  db: DatabaseSync,
+  mode: RunMode,
+  result: ApplyResult,
+  details: JobDetails,
+  restoreUrl?: string
+): Promise<void> {
+  if (result.outcome !== 'applied' || !details.companyUrl || mode === 'read-only') return
+
+  try {
+    const page = await findPageByUrlPart('linkedin.com')
+    const info = await fetchCompanyAboutInfo(page, details.companyUrl, details.company)
+    upsertCompany(db, info)
+    if (restoreUrl) {
+      await gotoWithRetry(page, restoreUrl, { waitUntil: 'domcontentloaded' })
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+    }
+  } catch (error) {
+    insertRunLog(db, {
+      script: 'linkedin:captureCompanyInfo',
+      outcome: 'failed',
+      triggerType: 'manual',
+      runMode: mode,
+      entityType: 'job',
+      entityId: details.jobUrl,
+      jobTitle: details.title,
+      company: details.company,
+      detail: { message: error instanceof Error ? error.message : error }
     })
   }
 }
@@ -310,6 +365,7 @@ export function registerLinkedinHandlers(): void {
             })
           }
           recordUnmatchedQuestionIfAny(db, jobId, details, result)
+          await captureCompanyInfoIfApplied(db, mode, result, details)
           insertRunLog(db, {
             script,
             outcome: result.outcome === 'error' ? 'failed' : 'success',
@@ -445,7 +501,7 @@ export function registerLinkedinHandlers(): void {
                 location: step.card.location,
                 detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
               }),
-            onApplyResult: (step, result, details) => {
+            onApplyResult: async (step, result, details) => {
               const attemptedAt = new Date().toISOString()
               if (mode !== 'read-only') {
                 insertApplyAttempt(db, {
@@ -459,6 +515,13 @@ export function registerLinkedinHandlers(): void {
                 })
               }
               recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
+              // Capture the current search-results URL before any navigation
+              // - captureCompanyInfoIfApplied restores this afterward so the
+              // next selectJobCard() isn't stranded on the company's /about page.
+              const returnUrl = await findPageByUrlPart('linkedin.com')
+                .then((page) => page.url())
+                .catch(() => undefined)
+              await captureCompanyInfoIfApplied(db, mode, result, details, returnUrl)
               insertRunLog(db, {
                 runId,
                 script: `${script}:job`,

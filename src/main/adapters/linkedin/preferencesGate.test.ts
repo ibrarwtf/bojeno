@@ -6,6 +6,7 @@ function makeDetails(overrides: Partial<JobDetails> = {}): JobDetails {
   return {
     jobUrl: 'https://www.linkedin.com/jobs/view/1/',
     company: 'Acme',
+    companyUrl: null,
     title: 'Engineer',
     postedRelative: null,
     clickedApplyCount: null,
@@ -15,6 +16,11 @@ function makeDetails(overrides: Partial<JobDetails> = {}): JobDetails {
     descriptionText: '',
     applicantInsightsText: null,
     applicantInsightCounts: null,
+    contactEmails: [],
+    contactPhones: [],
+    jobPosterName: null,
+    jobPosterTitle: null,
+    jobPosterProfileUrl: null,
     ...overrides
   }
 }

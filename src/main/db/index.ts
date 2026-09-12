@@ -17,6 +17,7 @@ import savedSearchGeoAndYearsSql from './migrations/20260912T0400_saved_search_g
 import blacklistHiredSql from './migrations/20260912T0500_blacklist_hired.sql?raw'
 import blacklistReasonSql from './migrations/20260912T0600_blacklist_reason.sql?raw'
 import blacklistMoreSpamAgenciesSql from './migrations/20260912T0700_blacklist_more_spam_agencies.sql?raw'
+import companiesSql from './migrations/20260912T0800_companies.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -37,7 +38,8 @@ const migrations: Migration[] = [
   {
     id: '20260912T0700_blacklist_more_spam_agencies.sql',
     sql: blacklistMoreSpamAgenciesSql
-  }
+  },
+  { id: '20260912T0800_companies.sql', sql: companiesSql }
 ]
 
 let db: DatabaseSync | undefined

@@ -50,7 +50,17 @@ export interface SequentialRunHooks {
   /** `details` is only present once JD capture has happened - absent for the
    *  cheap already-applied/parse-warning skips that happen before it. */
   onSkipped?: (step: SequentialRunStep, reason: string, details?: JobDetails) => void
-  onApplyResult?: (step: SequentialRunStep, result: ApplyResult, details: JobDetails) => void
+  /**
+   * Awaited before the loop moves on to the next card - a caller that
+   * navigates here (e.g. to capture the company's /about page after a real
+   * 'applied' outcome) must finish and restore the search-results page
+   * before the next selectJobCard runs, not race it.
+   */
+  onApplyResult?: (
+    step: SequentialRunStep,
+    result: ApplyResult,
+    details: JobDetails
+  ) => void | Promise<void>
   /** `details` is present unless capture itself is what threw. */
   onError?: (step: SequentialRunStep, error: unknown, details?: JobDetails) => void
   /** Checked before each job and after the between-jobs pace delay - lets a
@@ -133,7 +143,7 @@ export async function runSequentialSearch(
         else if (result.outcome === 'needs_review') summary.needsReview++
         else if (result.outcome === 'skipped') summary.skipped++
         else if (result.outcome === 'error') summary.failed++
-        hooks.onApplyResult?.(step, result, details)
+        await hooks.onApplyResult?.(step, result, details)
       } catch (error) {
         summary.failed++
         hooks.onError?.(step, error, details)
