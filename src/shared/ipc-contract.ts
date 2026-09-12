@@ -38,6 +38,7 @@ export const IpcChannels = {
   trackerGetUnmatchedQuestions: 'tracker:getUnmatchedQuestions',
   trackerResolveUnmatchedQuestion: 'tracker:resolveUnmatchedQuestion',
   trackerCreateTestUnmatchedQuestion: 'tracker:createTestUnmatchedQuestion',
+  trackerGetApplyRate: 'tracker:getApplyRate',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const

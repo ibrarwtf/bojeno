@@ -1,7 +1,13 @@
-import { useState } from 'react'
-import type { LoginStatus } from '../../../../shared/types'
+import { useEffect, useState } from 'react'
+import type { LoginStatus, PlatformApplyRate } from '../../../../shared/types'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
+
+// Refetched on this interval so the badge reflects runs that finished since
+// the header last mounted - cheap (one indexed COUNT query) and this is
+// logging/visibility only (see ledger.ts), so no push/IPC-event plumbing is
+// worth building for it yet.
+const APPLY_RATE_POLL_MS = 60_000
 
 // Placeholder account-level stats until there's a real backend for them (no stats
 // table/IPC exists yet - this is UI scaffolding only, not live data). LinkedIn-specific
@@ -22,6 +28,21 @@ const placeholderStats = [
 export function AccountHeader(): React.JSX.Element {
   const [status, setStatus] = useState<LoginStatus | undefined>()
   const [checking, setChecking] = useState(false)
+  const [applyRate, setApplyRate] = useState<PlatformApplyRate | undefined>()
+
+  useEffect(() => {
+    let cancelled = false
+    async function refreshApplyRate(): Promise<void> {
+      const rate = await window.bojeno.getApplyRate('linkedin')
+      if (!cancelled) setApplyRate(rate)
+    }
+    void refreshApplyRate()
+    const timer = setInterval(() => void refreshApplyRate(), APPLY_RATE_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
 
   async function checkStatus(): Promise<void> {
     setChecking(true)
@@ -62,6 +83,15 @@ export function AccountHeader(): React.JSX.Element {
             </span>
           ))}
         </div>
+
+        {/* Real, logging-only current pace (see db/queries/ledger.ts and #84) -
+            no cap/enforcement is derived from this, it's purely so the owner
+            can see at a glance whether a scheduled run's pace looks sane. */}
+        {applyRate && (
+          <Badge variant="outline" title="Real (non-dry-run) applies actually submitted">
+            {applyRate.lastHour}/hr · {applyRate.last24h}/24h
+          </Badge>
+        )}
 
         <Button
           size="sm"

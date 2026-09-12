@@ -3,15 +3,20 @@ import { IpcChannels } from '../channels'
 import { getDb } from '../../db'
 import { getAppliedCountHistory } from '../../db/queries/appliedCounts'
 import { getRecentRunLogs } from '../../db/queries/runLogs'
+import { getApplyRateForPlatform } from '../../db/queries/ledger'
 import {
   listUnresolvedUnmatchedQuestions,
   resolveUnmatchedQuestion
 } from '../../db/queries/unmatchedQuestions'
 import { insertUnmatchedQuestionAndNotify } from '../../notifications/unmatchedQuestionNotifier'
 import { appSessionStartedAt } from '../../appSession'
+import type { Platform } from '../../../shared/types'
 
 export function registerTrackerHandlers(): void {
   ipcMain.handle(IpcChannels.trackerGetAppliedCountHistory, () => getAppliedCountHistory(getDb()))
+  ipcMain.handle(IpcChannels.trackerGetApplyRate, (_event, platform: Platform) =>
+    getApplyRateForPlatform(getDb(), platform)
+  )
   ipcMain.handle(IpcChannels.trackerGetRunLogs, () =>
     getRecentRunLogs(getDb(), 50, appSessionStartedAt)
   )

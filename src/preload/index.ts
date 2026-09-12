@@ -17,6 +17,7 @@ import type {
   LinkedinSavedSearch,
   LoginStatus,
   Platform,
+  PlatformApplyRate,
   RunLogRow,
   ScannedJobCard,
   SequentialRunSummary,
@@ -53,6 +54,8 @@ const bojenoApi = {
   },
   getAppliedCountHistory: (): Promise<AppliedCountPoint[]> =>
     ipcRenderer.invoke(IpcChannels.trackerGetAppliedCountHistory),
+  getApplyRate: (platform: Platform): Promise<PlatformApplyRate> =>
+    ipcRenderer.invoke(IpcChannels.trackerGetApplyRate, platform),
   captureJobDetails: (jobUrl: string): Promise<JobDetails> =>
     ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl),
   scanJobs: (params: ScanJobsArgs): Promise<ScannedJobCard[]> =>

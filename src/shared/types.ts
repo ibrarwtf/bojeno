@@ -191,6 +191,18 @@ export interface UnmatchedQuestionRow {
   notifiedAt: string | null
 }
 
+/**
+ * Logging/visibility-only rate readout for a single platform - see #84 and
+ * bojeno-project-brief.md §5. Never used to cap, block, or auto-pause a run.
+ */
+export interface PlatformApplyRate {
+  platform: Platform
+  /** Real (non-dry-run) applies with outcome 'applied' in the last 60 minutes. */
+  lastHour: number
+  /** Same, over the last 24 hours. */
+  last24h: number
+}
+
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
 export interface JobDetails {
   jobUrl: string
