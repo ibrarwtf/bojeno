@@ -7,6 +7,7 @@ import { registerLinkedinHandlers } from './ipc/handlers/linkedin'
 import { registerNaukriHandlers } from './ipc/handlers/naukri'
 import { registerPlatformHandlers } from './ipc/handlers/platform'
 import { registerTrackerHandlers } from './ipc/handlers/tracker'
+import { registerPipelineHandlers } from './ipc/handlers/pipeline'
 import { startScheduler } from './scheduler/runScheduler'
 
 // A second launch (a leftover process from an unclean previous dev session,
@@ -46,6 +47,7 @@ if (!gotSingleInstanceLock) {
     registerNaukriHandlers()
     registerPlatformHandlers()
     registerTrackerHandlers()
+    registerPipelineHandlers()
 
     createWindow()
 

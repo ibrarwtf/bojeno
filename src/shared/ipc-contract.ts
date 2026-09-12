@@ -2,17 +2,20 @@ import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
+  CreatePipelineContactArgs,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
   LinkedinSavedSearch,
   LoginStatus,
+  PipelineContactRow,
   Platform,
   RunLogRow,
   ScannedJobCard,
   SearchUrlParams,
   SequentialRunSummary,
-  UnmatchedQuestionRow
+  UnmatchedQuestionRow,
+  UpdatePipelineContactArgs
 } from './types'
 
 export const IpcChannels = {
@@ -39,6 +42,11 @@ export const IpcChannels = {
   trackerResolveUnmatchedQuestion: 'tracker:resolveUnmatchedQuestion',
   trackerCreateTestUnmatchedQuestion: 'tracker:createTestUnmatchedQuestion',
   trackerGetApplyRate: 'tracker:getApplyRate',
+  pipelineListContacts: 'pipeline:listContacts',
+  pipelineCreateContact: 'pipeline:createContact',
+  pipelineUpdateContact: 'pipeline:updateContact',
+  pipelineDeleteContact: 'pipeline:deleteContact',
+  pipelineListFollowUpsDue: 'pipeline:listFollowUpsDue',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -163,5 +171,25 @@ export interface IpcContract {
   [IpcChannels.linkedinSavedSearchesTouchRun]: {
     args: [number]
     return: void
+  }
+  [IpcChannels.pipelineListContacts]: {
+    args: []
+    return: PipelineContactRow[]
+  }
+  [IpcChannels.pipelineCreateContact]: {
+    args: [CreatePipelineContactArgs]
+    return: PipelineContactRow
+  }
+  [IpcChannels.pipelineUpdateContact]: {
+    args: [UpdatePipelineContactArgs]
+    return: void
+  }
+  [IpcChannels.pipelineDeleteContact]: {
+    args: [id: number]
+    return: void
+  }
+  [IpcChannels.pipelineListFollowUpsDue]: {
+    args: []
+    return: PipelineContactRow[]
   }
 }

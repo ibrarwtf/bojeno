@@ -11,17 +11,20 @@ import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
+  CreatePipelineContactArgs,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
   LinkedinSavedSearch,
   LoginStatus,
+  PipelineContactRow,
   Platform,
   PlatformApplyRate,
   RunLogRow,
   ScannedJobCard,
   SequentialRunSummary,
-  UnmatchedQuestionRow
+  UnmatchedQuestionRow,
+  UpdatePipelineContactArgs
 } from '../shared/types'
 
 const bojenoApi = {
@@ -85,7 +88,17 @@ const bojenoApi = {
   deleteSavedSearch: (id: number): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesDelete, id),
   touchSavedSearchLastRun: (id: number): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesTouchRun, id)
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesTouchRun, id),
+  listPipelineContacts: (): Promise<PipelineContactRow[]> =>
+    ipcRenderer.invoke(IpcChannels.pipelineListContacts),
+  createPipelineContact: (args: CreatePipelineContactArgs): Promise<PipelineContactRow> =>
+    ipcRenderer.invoke(IpcChannels.pipelineCreateContact, args),
+  updatePipelineContact: (args: UpdatePipelineContactArgs): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.pipelineUpdateContact, args),
+  deletePipelineContact: (id: number): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.pipelineDeleteContact, id),
+  listFollowUpsDue: (): Promise<PipelineContactRow[]> =>
+    ipcRenderer.invoke(IpcChannels.pipelineListFollowUpsDue)
 }
 
 if (process.contextIsolated) {

@@ -234,6 +234,53 @@ export interface JobDetails {
   jobPosterProfileUrl: string | null
 }
 
+/** Status of a manually-tracked pipeline contact - see PipelineContactRow. */
+export type PipelineContactStatus = 'contacted' | 'interview_scheduled' | 'no_response' | 'closed'
+
+/**
+ * One manually-logged funnel entry for stages 3-5 (contacted, interview
+ * scheduled, outcome) - see bojeno-project-brief.md §2/§9 and issue #85.
+ * `externalJobId` optionally links back to a specific applied_jobs/
+ * apply_attempts row when the contact is about a known job; left null for a
+ * cold recruiter reach-out with no job attached yet.
+ */
+export interface PipelineContactRow {
+  id: number
+  platform: Platform
+  company: string
+  externalJobId: string | null
+  contactedAt: string
+  contactNote: string | null
+  interviewScheduledAt: string | null
+  lastFollowUpAt: string | null
+  status: PipelineContactStatus
+  createdAt: string
+}
+
+/** Args for creating a new pipeline_contacts row - see insertPipelineContact. */
+export interface CreatePipelineContactArgs {
+  platform: Platform
+  company: string
+  externalJobId?: string | null
+  contactedAt: string
+  contactNote?: string | null
+  interviewScheduledAt?: string | null
+  lastFollowUpAt?: string | null
+  status?: PipelineContactStatus
+}
+
+/** Args for updating an existing pipeline_contacts row - all fields optional except id. */
+export interface UpdatePipelineContactArgs {
+  id: number
+  company?: string
+  externalJobId?: string | null
+  contactedAt?: string
+  contactNote?: string | null
+  interviewScheduledAt?: string | null
+  lastFollowUpAt?: string | null
+  status?: PipelineContactStatus
+}
+
 /**
  * One row per company - populated from two independent sources that never
  * overwrite each other's fields (see companies.ts's upsert functions):

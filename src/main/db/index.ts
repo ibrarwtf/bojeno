@@ -20,6 +20,7 @@ import blacklistMoreSpamAgenciesSql from './migrations/20260912T0700_blacklist_m
 import companiesSql from './migrations/20260912T0800_companies.sql?raw'
 import companiesGccFieldsSql from './migrations/20260912T0900_companies_gcc_fields.sql?raw'
 import unmatchedQuestionsNotifiedAtSql from './migrations/20260912T1000_unmatched_questions_notified_at.sql?raw'
+import pipelineContactsSql from './migrations/20260912T1100_pipeline_contacts.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -46,7 +47,8 @@ const migrations: Migration[] = [
   {
     id: '20260912T1000_unmatched_questions_notified_at.sql',
     sql: unmatchedQuestionsNotifiedAtSql
-  }
+  },
+  { id: '20260912T1100_pipeline_contacts.sql', sql: pipelineContactsSql }
 ]
 
 let db: DatabaseSync | undefined
