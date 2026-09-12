@@ -225,6 +225,16 @@ Before building a new adapter or discovery feature from scratch, check whether o
 
 The Lever adapter itself (originally #18) was removed 2026-09-12 in the complexity cut below — this row stays as a pointer back to `lever.mjs` for whenever a second adapter is actually built.
 
+Specific files worth knowing about ahead of time, found while scoping company-info/email/poster capture (2026-09-12):
+
+| File | Capability | Bojeno status |
+|---|---|---|
+| `tools/find-company-id.mjs` | Resolves a company's numeric LinkedIn ID by searching for it, then regexing the company page's own HTML (`currentCompany=`, `urn:li:company:` patterns) | Not ported — being adapted now for a job-posting-to-company-id resolver |
+| `tools/find-hiring-posts.mjs` | `EMAIL_RE` + a junk-filter list, scoped to LinkedIn feed post text | Not ported — being adapted now for JD-text email/phone extraction |
+| `tools/find-insiders.mjs` | Finds 1st/2nd-degree connections at a target company (by numeric ID) for warm-intro/no-quota messaging | Not ported, no current plan to — flagged here so a future connections feature doesn't get re-derived from scratch |
+| `tools/draft-hiring-leads.mjs`, `tools/filter-hiring-leads.mjs` | Turns `find-hiring-posts.mjs`'s raw email leads into filtered, drafted outreach | Not ported, no current plan to |
+| `tools/ats_discover.py` | Discovers which ATS (Lever/Ashby/etc.) a company uses from its careers page | Not ported — relevant if a second adapter beyond LinkedIn/Naukri is ever built |
+
 ## 13. Deferred past v0.1
 
 *Cut 2026-09-12: four sessions had built a scheduler, a rate-limit ledger, a capability-based adapter registry, and a full Lever ATS adapter (discovery + apply) before the single core user journey — LinkedIn discover → review → apply → track — was working end-to-end in the running app. All of it was real, tested, working code; none of it was earning its place yet. It was deleted outright (not just stopped) rather than left inert in the tree, on the theory that git history is the archive and a smaller, more honest tree is worth more right now than optionality that isn't needed yet. Re-read the relevant commit (before 77131ad / around 0a40366, c5ecbff) if any of this needs to come back — porting proven code is still preferred over re-deriving it from scratch (see memory: prefer porting/gluing over new architecture).*
