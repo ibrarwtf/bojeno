@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { TitleFilterConfig } from '../adapters/linkedin/titleFilter'
 
 /**
  * User-tunable job-filtering thresholds - kept out of code the same way
@@ -16,6 +17,13 @@ export interface JobFilterPreferences {
    *  above this - a more precise cut than maxApplicantCount when both are
    *  present on the same posting, since it isn't rounded to "Over N". */
   maxApplicantInsightTotal?: number
+  /** Skip a posting whose JD-parsed years-of-experience requirement exceeds
+   *  this. Absent/undefined = no cap; null yearsRequired (JD didn't mention
+   *  a number) never triggers this, only a parsed number over the cap does. */
+  maxYearsRequired?: number
+  /** Card-level title relevance gate, checked before ever opening a
+   *  posting - see titleFilter.ts. Absent/undefined = every title passes. */
+  titleFilter?: TitleFilterConfig
 }
 
 const PREFERENCES_PATH = join(process.cwd(), '.local', 'preferences.json')

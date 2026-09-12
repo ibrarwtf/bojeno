@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { Platform } from '../../../shared/types'
+import type { Platform, UnmatchedQuestionRow } from '../../../shared/types'
 
 export interface UnmatchedQuestionArgs {
   platform: Platform
@@ -12,13 +12,6 @@ export interface UnmatchedQuestionArgs {
   questionLabel: string
   /** Which run found it, if any - a lone applyToJob call has no run. */
   runId?: string | null
-}
-
-export interface UnmatchedQuestionRow extends UnmatchedQuestionArgs {
-  id: number
-  detectedAt: string
-  resolved: boolean
-  answer: string | null
 }
 
 interface UnmatchedQuestionRowRaw {

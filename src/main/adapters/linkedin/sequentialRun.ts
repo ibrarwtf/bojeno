@@ -34,6 +34,10 @@ export interface SequentialRunStep {
 export interface SequentialRunHooks {
   /** Called once the ordered job list is known, before the first job is processed. */
   onDiscovered?: (cards: ScannedJobCard[]) => void
+  /** Cheap card-level check, before selectJobCard/JD capture ever happens -
+   *  e.g. title relevance. Return a skip reason to skip without opening the
+   *  posting at all; return undefined to proceed to capture. */
+  filterCard?: (card: ScannedJobCard) => string | undefined
   /** Called after a job's JD is captured, before the apply/skip decision. Return a
    *  skip reason to skip the job (e.g. blacklisted company); return undefined to apply. */
   decide: (step: SequentialRunStep, details: JobDetails) => string | undefined
@@ -58,7 +62,14 @@ export async function runSequentialSearch(
   const cards = await scanJobs(params)
   hooks.onDiscovered?.(cards)
 
-  const summary: SequentialRunSummary = { total: cards.length, applied: 0, skipped: 0, failed: 0 }
+  const summary: SequentialRunSummary = {
+    total: cards.length,
+    applied: 0,
+    dryRunApplied: 0,
+    needsReview: 0,
+    skipped: 0,
+    failed: 0
+  }
 
   for (let index = 0; index < cards.length; index++) {
     const card = cards[index]
@@ -70,6 +81,13 @@ export async function runSequentialSearch(
         step,
         card.alreadyApplied ? 'already applied' : 'card did not parse cleanly'
       )
+      continue
+    }
+
+    const cardSkipReason = hooks.filterCard?.(card)
+    if (cardSkipReason) {
+      summary.skipped++
+      hooks.onSkipped?.(step, cardSkipReason)
       continue
     }
 
@@ -85,8 +103,13 @@ export async function runSequentialSearch(
       }
 
       const result = await applyFromSearchResults(dryRun)
-      summary.applied += result.outcome === 'error' ? 0 : 1
-      summary.failed += result.outcome === 'error' ? 1 : 0
+      // Bucketed by the run's own dryRun flag, never by outcome alone - a
+      // dry run must never be able to inflate the real `applied` count.
+      if (result.outcome === 'applied') summary.applied++
+      else if (result.outcome === 'dry_run_ok') summary.dryRunApplied++
+      else if (result.outcome === 'needs_review') summary.needsReview++
+      else if (result.outcome === 'skipped') summary.skipped++
+      else if (result.outcome === 'error') summary.failed++
       hooks.onApplyResult?.(step, result, details)
     } catch (error) {
       summary.failed++

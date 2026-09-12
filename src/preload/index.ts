@@ -19,7 +19,8 @@ import type {
   Platform,
   RunLogRow,
   ScannedJobCard,
-  SequentialRunSummary
+  SequentialRunSummary,
+  UnmatchedQuestionRow
 } from '../shared/types'
 
 const bojenoApi = {
@@ -61,6 +62,8 @@ const bojenoApi = {
   runSequentialSearch: (args: RunSequentialSearchArgs): Promise<SequentialRunSummary> =>
     ipcRenderer.invoke(IpcChannels.linkedinRunSequentialSearch, args),
   getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
+  getUnmatchedQuestions: (): Promise<UnmatchedQuestionRow[]> =>
+    ipcRenderer.invoke(IpcChannels.trackerGetUnmatchedQuestions),
   listSavedSearches: (): Promise<LinkedinSavedSearch[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesList),
   createSavedSearch: (args: CreateSavedSearchArgs): Promise<LinkedinSavedSearch> =>

@@ -6,6 +6,7 @@ import appliedCountsMetricSql from './migrations/20260911T2100_applied_counts_me
 import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
 import linkedinSavedSearchesSql from './migrations/20260912T0000_linkedin_saved_searches.sql?raw'
+import savedSearchGeoAndYearsSql from './migrations/20260912T0400_saved_search_geo_and_years.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
 const metricMigration: Migration = {
@@ -23,6 +24,10 @@ const companyBlacklistMigration: Migration = {
 const linkedinSavedSearchesMigration: Migration = {
   id: '20260912T0000_linkedin_saved_searches.sql',
   sql: linkedinSavedSearchesSql
+}
+const savedSearchGeoAndYearsMigration: Migration = {
+  id: '20260912T0400_saved_search_geo_and_years.sql',
+  sql: savedSearchGeoAndYearsSql
 }
 
 function tableNames(db: DatabaseSync): string[] {
@@ -122,5 +127,24 @@ describe('runMigrations', () => {
     runMigrations(db, [initMigration, linkedinSavedSearchesMigration], () => undefined)
 
     expect(tableNames(db)).toContain('linkedin_saved_searches')
+  })
+
+  it('adds geo_id and distance_km to linkedin_saved_searches', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(
+      db,
+      [initMigration, linkedinSavedSearchesMigration, savedSearchGeoAndYearsMigration],
+      () => undefined
+    )
+
+    db.prepare(
+      `INSERT INTO linkedin_saved_searches (name, geo_id, distance_km, created_at)
+       VALUES ('AI Engineer - Hyderabad', '105556991', 40, '2026-09-12T00:00:00.000Z')`
+    ).run()
+    const row = db.prepare('SELECT geo_id, distance_km FROM linkedin_saved_searches').get() as {
+      geo_id: string
+      distance_km: number
+    }
+    expect(row).toEqual({ geo_id: '105556991', distance_km: 40 })
   })
 })

@@ -315,9 +315,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 12px;
   border-bottom: 1px solid var(--ev-c-gray-2);
   font-weight: 600;
+}
+
+.linkedin-saved-searches-dry-run {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 .linkedin-saved-searches-form {
