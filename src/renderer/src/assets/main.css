@@ -191,6 +191,9 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 
 .log-panel {
@@ -222,6 +225,9 @@ body {
   padding: 6px 12px;
   font-family: monospace;
   font-size: 12px;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 
 .log-panel-empty {
@@ -398,6 +404,21 @@ body {
 .linkedin-saved-searches-item-run:disabled {
   color: var(--ev-c-text-2);
   cursor: default;
+}
+
+.linkedin-saved-searches-item-run-active {
+  color: #cf222e;
+  animation: linkedin-saved-searches-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes linkedin-saved-searches-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .linkedin-saved-searches-item-remove {

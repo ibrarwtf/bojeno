@@ -26,6 +26,8 @@ export function SavedSearches({
   const [keywords, setKeywords] = useState('')
   const [location, setLocation] = useState('')
   const [runningId, setRunningId] = useState<number | undefined>()
+  const [activeRunId, setActiveRunId] = useState<string | undefined>()
+  const [stopping, setStopping] = useState(false)
   const [dryRun, setDryRun] = useState(true)
 
   useEffect(() => {
@@ -57,9 +59,12 @@ export function SavedSearches({
   }
 
   async function run(search: LinkedinSavedSearch): Promise<void> {
+    const runId = crypto.randomUUID()
     setRunningId(search.id)
+    setActiveRunId(runId)
     try {
       await window.bojeno.runSequentialSearch({
+        runId,
         params: {
           keywords: search.keywords ?? undefined,
           location: search.location ?? undefined,
@@ -74,7 +79,18 @@ export function SavedSearches({
       await refresh()
     } finally {
       setRunningId(undefined)
+      setActiveRunId(undefined)
+      setStopping(false)
     }
+  }
+
+  async function stop(): Promise<void> {
+    if (!activeRunId) return
+    setStopping(true)
+    // Doesn't clear runningId itself - run()'s own finally does that once
+    // the in-flight IPC call actually resolves (the main-process loop
+    // notices the cancellation between jobs, not instantly).
+    await window.bojeno.cancelRun(activeRunId)
   }
 
   return (
@@ -128,20 +144,38 @@ export function SavedSearches({
               <div className="linkedin-saved-searches-item-name">{search.name}</div>
               <div className="linkedin-saved-searches-item-meta">
                 LinkedIn{search.location ? ` · ${search.location}` : ''} ·{' '}
-                {relativeTime(search.lastRunAt)}
+                {runningId === search.id
+                  ? stopping
+                    ? 'Stopping…'
+                    : 'Running…'
+                  : relativeTime(search.lastRunAt)}
               </div>
               <div className="linkedin-saved-searches-item-actions">
-                <button
-                  className="linkedin-saved-searches-item-run"
-                  title="Run"
-                  disabled={runningId !== undefined}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void run(search)
-                  }}
-                >
-                  {runningId === search.id ? '…' : '▶'}
-                </button>
+                {runningId === search.id ? (
+                  <button
+                    className="linkedin-saved-searches-item-run linkedin-saved-searches-item-run-active"
+                    title={stopping ? 'Stopping…' : 'Stop'}
+                    disabled={stopping}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void stop()
+                    }}
+                  >
+                    {stopping ? '…' : '■'}
+                  </button>
+                ) : (
+                  <button
+                    className="linkedin-saved-searches-item-run"
+                    title="Run"
+                    disabled={runningId !== undefined}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void run(search)
+                    }}
+                  >
+                    ▶
+                  </button>
+                )}
                 <button
                   className="linkedin-saved-searches-item-remove"
                   title="Delete"

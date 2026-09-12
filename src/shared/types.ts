@@ -82,12 +82,14 @@ export interface ApplyResult {
   reason?: string
   header?: string
   /**
-   * Set only when `reason` is specifically an answer-bank miss on a named
-   * question (not every 'needs_review' cause has one - e.g. "exceeded max
-   * steps" doesn't name a question). Lets a caller log it for review without
-   * parsing the freeform `reason` string.
+   * Every question this pass couldn't really answer - each filled with a
+   * throwaway placeholder just to keep walking the modal forward (never
+   * actually submitted when this is non-empty, dry run or not). Not every
+   * 'needs_review' cause has one - e.g. "exceeded max steps" has none. Lets
+   * a caller log each one for review without parsing the freeform `reason`
+   * string.
    */
-  unmatchedQuestion?: { kind: 'text' | 'select' | 'radio'; label: string }
+  unmatchedQuestions?: { kind: 'text' | 'select' | 'radio'; label: string }[]
 }
 
 /** A saved LinkedIn search - name plus the params scanJobs already accepts. */
@@ -156,6 +158,8 @@ export interface SequentialRunSummary {
   needsReview: number
   skipped: number
   failed: number
+  /** True when a Stop request ended the walk before every card was processed. */
+  cancelled: boolean
 }
 
 /** One apply-modal question the answer bank couldn't match - queued for review. */

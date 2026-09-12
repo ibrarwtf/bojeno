@@ -7,6 +7,7 @@ import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
 import linkedinSavedSearchesSql from './migrations/20260912T0000_linkedin_saved_searches.sql?raw'
 import savedSearchGeoAndYearsSql from './migrations/20260912T0400_saved_search_geo_and_years.sql?raw'
+import blacklistHiredSql from './migrations/20260912T0500_blacklist_hired.sql?raw'
 
 const initMigration: Migration = { id: '20260911T1900_init.sql', sql: initMigrationSql }
 const metricMigration: Migration = {
@@ -28,6 +29,10 @@ const linkedinSavedSearchesMigration: Migration = {
 const savedSearchGeoAndYearsMigration: Migration = {
   id: '20260912T0400_saved_search_geo_and_years.sql',
   sql: savedSearchGeoAndYearsSql
+}
+const blacklistHiredMigration: Migration = {
+  id: '20260912T0500_blacklist_hired.sql',
+  sql: blacklistHiredSql
 }
 
 function tableNames(db: DatabaseSync): string[] {
@@ -146,5 +151,21 @@ describe('runMigrations', () => {
       distance_km: number
     }
     expect(row).toEqual({ geo_id: '105556991', distance_km: 40 })
+  })
+
+  it('adds "Hired" to the company blacklist, exact match only', () => {
+    const db = new DatabaseSync(':memory:')
+    runMigrations(
+      db,
+      [initMigration, companyBlacklistMigration, blacklistHiredMigration],
+      () => undefined
+    )
+
+    const rows = db.prepare('SELECT company_name FROM company_blacklist').all() as {
+      company_name: string
+    }[]
+    expect(rows.map((row) => row.company_name)).toEqual(
+      expect.arrayContaining(['Hire Feed', 'Quik Hire Staffing', 'Hired'])
+    )
   })
 })

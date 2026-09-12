@@ -47,6 +47,11 @@ export interface SequentialRunHooks {
   onApplyResult?: (step: SequentialRunStep, result: ApplyResult, details: JobDetails) => void
   /** `details` is present unless capture itself is what threw. */
   onError?: (step: SequentialRunStep, error: unknown, details?: JobDetails) => void
+  /** Checked before each job and after the between-jobs pace delay - lets a
+   *  caller (the IPC handler, backing a Stop button) end the walk early
+   *  without this module knowing anything about how cancellation is
+   *  requested. Remaining cards are left untouched, not marked skipped. */
+  isCancelled?: () => boolean
 }
 
 /** Cards not worth capturing/deciding on at all - already applied, or too malformed to trust. */
@@ -68,10 +73,16 @@ export async function runSequentialSearch(
     dryRunApplied: 0,
     needsReview: 0,
     skipped: 0,
-    failed: 0
+    failed: 0,
+    cancelled: false
   }
 
   for (let index = 0; index < cards.length; index++) {
+    if (hooks.isCancelled?.()) {
+      summary.cancelled = true
+      break
+    }
+
     const card = cards[index]
     const step: SequentialRunStep = { card, index, total: cards.length }
 

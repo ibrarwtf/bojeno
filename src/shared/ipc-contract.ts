@@ -23,6 +23,7 @@ export const IpcChannels = {
   linkedinScanJobs: 'linkedin:scanJobs',
   linkedinApplyToJob: 'linkedin:applyToJob',
   linkedinRunSequentialSearch: 'linkedin:runSequentialSearch',
+  linkedinCancelRun: 'linkedin:cancelRun',
   linkedinSavedSearchesList: 'linkedin:savedSearches:list',
   linkedinSavedSearchesCreate: 'linkedin:savedSearches:create',
   linkedinSavedSearchesDelete: 'linkedin:savedSearches:delete',
@@ -46,6 +47,10 @@ export interface ActivateTabArgs {
 export type ScanJobsArgs = SearchUrlParams
 
 export interface RunSequentialSearchArgs {
+  /** Caller-generated, known before the run starts - the only way a Stop
+   *  button can target a run that's still in flight, since the run's own
+   *  IPC call doesn't resolve until it's done. */
+  runId: string
   params: SearchUrlParams
   dryRun: boolean
 }
@@ -108,6 +113,10 @@ export interface IpcContract {
   [IpcChannels.linkedinRunSequentialSearch]: {
     args: [RunSequentialSearchArgs]
     return: SequentialRunSummary
+  }
+  [IpcChannels.linkedinCancelRun]: {
+    args: [string]
+    return: void
   }
   [IpcChannels.trackerGetRunLogs]: {
     args: []
