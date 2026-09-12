@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   parseYearsRequired,
   parseApplicantCount,
+  parseApplicantCountNumber,
+  parseApplicantInsightCounts,
   parsePostedRelative,
   parseClickedApplyCount,
   hasFitSignal,
@@ -84,6 +86,41 @@ describe('parseApplicantCount', () => {
 
   it('returns null when the fixture uses "clicked apply" phrasing instead', () => {
     expect(parseApplicantCount(FIXTURE)).toBeNull()
+  })
+})
+
+describe('parseApplicantCountNumber', () => {
+  it('extracts the bare number from a plain count', () => {
+    expect(parseApplicantCountNumber('47')).toBe(47)
+  })
+
+  it('extracts the bare number from an "Over N" count', () => {
+    expect(parseApplicantCountNumber('Over 100')).toBe(100)
+  })
+
+  it('returns null when given null', () => {
+    expect(parseApplicantCountNumber(null)).toBeNull()
+  })
+})
+
+describe('parseApplicantInsightCounts', () => {
+  const SECTION =
+    'Applicants for this job\n\n352\n\nApplicants\n\n299\n\nApplicants in the past day'
+
+  it('extracts both the total and past-day counts', () => {
+    expect(parseApplicantInsightCounts(SECTION)).toEqual({ total: 352, pastDay: 299 })
+  })
+
+  it('strips thousands separators', () => {
+    const text = '1,352 Applicants\n1,299 Applicants in the past day'
+    expect(parseApplicantInsightCounts(text)).toEqual({ total: 1352, pastDay: 1299 })
+  })
+
+  it('returns nulls when the section is absent', () => {
+    expect(parseApplicantInsightCounts('no premium widget on this posting')).toEqual({
+      total: null,
+      pastDay: null
+    })
   })
 })
 

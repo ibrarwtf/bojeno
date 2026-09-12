@@ -26,12 +26,18 @@ export interface FetchAppliedCountResult {
   fetchedAt?: string
 }
 
-/** One row for the live log panel. */
+/** One row for the live log panel - the same row a run leaves behind in the DB. */
 export interface RunLogRow {
+  runId: string | null
   timestamp: string
   script: string
   outcome: RunOutcome
   entityId: string | null
+  jobTitle: string | null
+  company: string | null
+  location: string | null
+  /** Freeform context for this row - a skip reason, parsed JD signal, or an error message. */
+  detail: unknown
 }
 
 /** One point in the applied-count-over-time chart — always the 'applied' metric. */
@@ -75,6 +81,13 @@ export interface ApplyResult {
   outcome: 'applied' | 'dry_run_ok' | 'needs_review' | 'skipped' | 'error'
   reason?: string
   header?: string
+  /**
+   * Set only when `reason` is specifically an answer-bank miss on a named
+   * question (not every 'needs_review' cause has one - e.g. "exceeded max
+   * steps" doesn't name a question). Lets a caller log it for review without
+   * parsing the freeform `reason` string.
+   */
+  unmatchedQuestion?: { kind: 'text' | 'select' | 'radio'; label: string }
 }
 
 /** A saved LinkedIn search - name plus the params scanJobs already accepts. */
@@ -105,7 +118,18 @@ export type WorkplaceType = 'onSite' | 'remote' | 'hybrid'
 /** Params buildSearchUrl turns into a LinkedIn jobs-search URL. */
 export interface SearchUrlParams {
   keywords?: string
+  /**
+   * Free-text location - only used when `geoId` isn't given. LinkedIn
+   * re-resolves this string server-side, which can land on the wrong place
+   * or a broader region than intended; prefer `geoId` whenever one is known.
+   */
   location?: string
+  /** LinkedIn's own numeric id for a resolved place - what its location
+   * autocomplete actually pins to. Takes precedence over `location` when set. */
+  geoId?: string
+  /** Search radius in kilometers, as shown in LinkedIn's own UI. Converted to
+   * the miles value LinkedIn's `distance` param actually expects. */
+  distanceKm?: number
   sortByRecent?: boolean
   easyApplyOnly?: boolean
   datePosted?: DatePosted
@@ -134,4 +158,11 @@ export interface JobDetails {
   yearsRequired: number | null
   descriptionText: string
   applicantInsightsText: string | null
+  /**
+   * The separate "Applicants for this job" premium widget (total + last-24h
+   * count) - distinct from applicantCount (the rough top-card figure) and
+   * from applicantInsightsText (the "Candidates who clicked apply" widget).
+   * Only appears on some postings; both fields are null when it's absent.
+   */
+  applicantInsightCounts: { total: number | null; pastDay: number | null } | null
 }

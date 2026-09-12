@@ -228,11 +228,21 @@ body {
   color: var(--ev-c-text-2);
 }
 
+.log-panel-group {
+  border-bottom: 1px solid var(--ev-c-gray-2);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
 .log-panel-row {
   display: flex;
   gap: 8px;
   padding: 2px 0;
   white-space: nowrap;
+}
+
+.log-panel-row-job {
+  padding-left: 16px;
 }
 
 .log-panel-time {
@@ -248,8 +258,23 @@ body {
   color: #cf222e;
 }
 
-.log-panel-entity {
+.log-panel-outcome-skipped {
+  color: #9a6700;
+}
+
+.log-panel-outcome-pending {
   color: var(--ev-c-text-2);
+  font-style: italic;
+}
+
+.log-panel-job {
+  color: var(--ev-c-text-1);
+}
+
+.log-panel-detail {
+  color: var(--ev-c-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .home {

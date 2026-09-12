@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
 import { IpcChannels } from '../channels'
 import type {
@@ -5,7 +6,7 @@ import type {
   CreateSavedSearchArgs,
   RunSequentialSearchArgs
 } from '../../../shared/ipc-contract'
-import type { ApplyResult, RunMode } from '../../../shared/types'
+import type { ApplyResult, JobDetails, RunMode } from '../../../shared/types'
 import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
 import { getDb } from '../../db'
@@ -14,6 +15,8 @@ import { insertAppliedCount } from '../../db/queries/appliedCounts'
 import { upsertAppliedJob } from '../../db/queries/appliedJobs'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
 import { isCompanyBlacklisted } from '../../db/queries/companyBlacklist'
+import { insertJobSnapshot } from '../../db/queries/jobSnapshots'
+import { insertUnmatchedQuestion } from '../../db/queries/unmatchedQuestions'
 import {
   listSavedSearches,
   createSavedSearch,
@@ -28,7 +31,62 @@ import {
   scanJobs,
   applyToJob as applyToLinkedinJob
 } from '../../adapters/linkedin/adapter'
-import { runSequentialSearch } from '../../adapters/linkedin/sequentialRun'
+import { runSequentialSearch, jobUrlFor } from '../../adapters/linkedin/sequentialRun'
+import { evaluateApplicantPreference } from '../../adapters/linkedin/preferencesGate'
+import { loadPreferences, type JobFilterPreferences } from '../../config/preferences'
+import type { DatabaseSync } from 'node:sqlite'
+
+/**
+ * The parsed-JD signal worth keeping alongside a log row - lets a run be
+ * audited later (e.g. "how many applications went to 1000+ applicant
+ * postings") without re-scraping LinkedIn. Not every field is present on
+ * every posting, so nulls here are informative, not missing data.
+ */
+function parsedSignalDetail(details: JobDetails): Record<string, unknown> {
+  return {
+    applicantCount: details.applicantCount,
+    applicantInsightCounts: details.applicantInsightCounts,
+    hasFitSignal: details.hasFitSignal,
+    yearsRequired: details.yearsRequired,
+    descriptionLength: details.descriptionText.length
+  }
+}
+
+/**
+ * Every reason a job gets skipped before ever opening the apply modal - the
+ * company blacklist plus the user's own applicant-volume preferences.
+ * Neither threshold is hardcoded here: preferences come from preferences.ts
+ * (loaded once per run, see loadPreferences), which reads .local/preferences.json.
+ */
+function decideSkip(
+  db: DatabaseSync,
+  details: JobDetails,
+  preferences: JobFilterPreferences
+): string | undefined {
+  if (isCompanyBlacklisted(db, details.company)) return `blacklisted company: ${details.company}`
+  return evaluateApplicantPreference(details, preferences)
+}
+
+/** Records a question the answer bank couldn't match, for later review - not every 'needs_review' has one. */
+function recordUnmatchedQuestionIfAny(
+  db: DatabaseSync,
+  jobId: string,
+  details: Pick<JobDetails, 'title' | 'company'>,
+  result: ApplyResult,
+  runId?: string
+): void {
+  if (!result.unmatchedQuestion) return
+  insertUnmatchedQuestion(db, {
+    platform: 'linkedin',
+    externalJobId: jobId,
+    jobUrl: jobUrlFor(jobId),
+    jobTitle: details.title,
+    company: details.company,
+    questionKind: result.unmatchedQuestion.kind,
+    questionLabel: result.unmatchedQuestion.label,
+    runId
+  })
+}
 
 export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinCheckLogin, () =>
@@ -82,7 +140,7 @@ export function registerLinkedinHandlers(): void {
           triggerType: 'manual',
           runMode: mode,
           duration: Date.now() - startedAt,
-          errorDetail: error instanceof Error ? { message: error.message } : error
+          detail: error instanceof Error ? { message: error.message } : error
         })
         return { outcome: 'failed' as const, platform: 'linkedin' as const }
       }
@@ -136,7 +194,7 @@ export function registerLinkedinHandlers(): void {
           triggerType: 'manual',
           runMode: mode,
           duration: Date.now() - startedAt,
-          errorDetail: error instanceof Error ? { message: error.message } : error
+          detail: error instanceof Error ? { message: error.message } : error
         })
         return { outcome: 'failed' as const, platform: 'linkedin' as const }
       }
@@ -178,14 +236,19 @@ export function registerLinkedinHandlers(): void {
           return { outcome: 'error', reason: 'not logged in' }
         }
 
-        // Checked before ever opening the apply modal - a blacklisted company is never
+        // Checked before ever opening the apply modal - a blacklisted company or a
+        // posting outside the user's own applicant-volume preferences is never
         // attempted, never burns a shot. Costs one extra page read (captureJobDetails
         // against the job's plain view URL) since applyToJob itself has no reason to
         // know the company otherwise.
         const jobUrl = `https://www.linkedin.com/jobs/view/${jobId}/`
         const details = await captureJobDetails(jobUrl)
-        if (isCompanyBlacklisted(db, details.company)) {
-          const reason = `blacklisted company: ${details.company}`
+        insertJobSnapshot(db, { platform: 'linkedin', externalJobId: jobId }, details)
+
+        const preferences = loadPreferences()
+        const skipReason = decideSkip(db, details, preferences)
+        if (skipReason) {
+          const reason = skipReason
           insertRunLog(db, {
             script,
             outcome: 'skipped',
@@ -193,7 +256,10 @@ export function registerLinkedinHandlers(): void {
             runMode: mode,
             duration: Date.now() - startedAt,
             entityType: 'job',
-            entityId: jobId
+            entityId: jobId,
+            jobTitle: details.title,
+            company: details.company,
+            detail: { reason, ...parsedSignalDetail(details) }
           })
           return { outcome: 'skipped', reason }
         }
@@ -215,6 +281,7 @@ export function registerLinkedinHandlers(): void {
               attemptedAt
             })
           }
+          recordUnmatchedQuestionIfAny(db, jobId, details, result)
           insertRunLog(db, {
             script,
             outcome: result.outcome === 'error' ? 'failed' : 'success',
@@ -222,7 +289,14 @@ export function registerLinkedinHandlers(): void {
             runMode: mode,
             duration: Date.now() - startedAt,
             entityType: 'job',
-            entityId: jobId
+            entityId: jobId,
+            jobTitle: details.title,
+            company: details.company,
+            detail: {
+              resultOutcome: result.outcome,
+              resultReason: result.reason,
+              ...parsedSignalDetail(details)
+            }
           })
           return result
         } catch (error) {
@@ -234,7 +308,12 @@ export function registerLinkedinHandlers(): void {
             duration: Date.now() - startedAt,
             entityType: 'job',
             entityId: jobId,
-            errorDetail: error instanceof Error ? { message: error.message } : error
+            jobTitle: details.title,
+            company: details.company,
+            detail: {
+              message: error instanceof Error ? error.message : error,
+              ...parsedSignalDetail(details)
+            }
           })
           throw error
         }
@@ -249,40 +328,56 @@ export function registerLinkedinHandlers(): void {
         const db = getDb()
         const script = 'linkedin:runSequentialSearch'
         const startedAt = Date.now()
+        // One id per whole search run, so every row it produces - the
+        // discovery summary and each per-job row - can be grouped back
+        // together later instead of only being orderable by timestamp.
+        const runId = randomUUID()
 
         const loginStatus = await checkLogin()
         if (!loginStatus.loggedIn) {
           insertRunLog(db, {
+            runId,
             script,
             outcome: 'auth_required',
             triggerType: 'manual',
             runMode: mode,
-            duration: Date.now() - startedAt
+            duration: Date.now() - startedAt,
+            detail: { params }
           })
           return { total: 0, applied: 0, skipped: 0, failed: 0 }
         }
 
         const effectiveDryRun = mode === 'live' ? dryRun : true
+        const preferences = loadPreferences()
 
         const summary = await runSequentialSearch(params, effectiveDryRun, {
           // Same gate applyToJob's own handler uses - checked here too since this
           // walk decides per-job whether to apply at all, applyToJob never sees a
-          // blacklisted job.
-          decide: (_step, details) =>
-            isCompanyBlacklisted(db, details.company)
-              ? `blacklisted company: ${details.company}`
-              : undefined,
-          onSkipped: (step, reason) =>
+          // blacklisted or over-preference job. Also where the JD capture gets
+          // persisted - decide() is called exactly once per job, right after capture.
+          decide: (step, details) => {
+            insertJobSnapshot(
+              db,
+              { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
+              details
+            )
+            return decideSkip(db, details, preferences)
+          },
+          onSkipped: (step, reason, details) =>
             insertRunLog(db, {
+              runId,
               script: `${script}:job`,
               outcome: 'skipped',
               triggerType: 'manual',
               runMode: mode,
               entityType: 'job',
               entityId: step.card.id,
-              errorDetail: reason
+              jobTitle: details?.title ?? step.card.title,
+              company: details?.company ?? step.card.company,
+              location: step.card.location,
+              detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
             }),
-          onApplyResult: (step, result) => {
+          onApplyResult: (step, result, details) => {
             const attemptedAt = new Date().toISOString()
             if (mode !== 'read-only') {
               insertApplyAttempt(db, {
@@ -295,33 +390,52 @@ export function registerLinkedinHandlers(): void {
                 attemptedAt
               })
             }
+            recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
             insertRunLog(db, {
+              runId,
               script: `${script}:job`,
               outcome: result.outcome === 'error' ? 'failed' : 'success',
               triggerType: 'manual',
               runMode: mode,
               entityType: 'job',
-              entityId: step.card.id
+              entityId: step.card.id,
+              jobTitle: details.title,
+              company: details.company,
+              location: step.card.location,
+              detail: {
+                resultOutcome: result.outcome,
+                resultReason: result.reason,
+                ...parsedSignalDetail(details)
+              }
             })
           },
-          onError: (step, error) =>
+          onError: (step, error, details) =>
             insertRunLog(db, {
+              runId,
               script: `${script}:job`,
               outcome: 'failed',
               triggerType: 'manual',
               runMode: mode,
               entityType: 'job',
               entityId: step.card.id,
-              errorDetail: error instanceof Error ? { message: error.message } : error
+              jobTitle: details?.title ?? step.card.title,
+              company: details?.company ?? step.card.company,
+              location: step.card.location,
+              detail: {
+                message: error instanceof Error ? error.message : error,
+                ...(details ? parsedSignalDetail(details) : {})
+              }
             })
         })
 
         insertRunLog(db, {
+          runId,
           script,
           outcome: 'success',
           triggerType: 'manual',
           runMode: mode,
-          duration: Date.now() - startedAt
+          duration: Date.now() - startedAt,
+          detail: { params, summary }
         })
         return summary
       })

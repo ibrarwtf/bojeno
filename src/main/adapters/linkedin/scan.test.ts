@@ -128,4 +128,27 @@ describe('buildSearchUrl', () => {
     expect(params.has('f_JT')).toBe(false)
     expect(params.has('f_WT')).toBe(false)
   })
+
+  it('sets geoId and omits location when geoId is given', () => {
+    const url = buildSearchUrl({ geoId: '106204383', location: 'Dubai' })
+    const params = new URL(url).searchParams
+    expect(params.get('geoId')).toBe('106204383')
+    expect(params.has('location')).toBe(false)
+  })
+
+  it('falls back to location when geoId is not given', () => {
+    const url = buildSearchUrl({ location: 'Dubai' })
+    const params = new URL(url).searchParams
+    expect(params.get('location')).toBe('Dubai')
+    expect(params.has('geoId')).toBe(false)
+  })
+
+  it('converts distanceKm to the miles value LinkedIn expects', () => {
+    expect(new URL(buildSearchUrl({ distanceKm: 40 })).searchParams.get('distance')).toBe('25')
+    expect(new URL(buildSearchUrl({ distanceKm: 160 })).searchParams.get('distance')).toBe('99')
+  })
+
+  it('omits distance when distanceKm is not given', () => {
+    expect(new URL(buildSearchUrl({})).searchParams.has('distance')).toBe(false)
+  })
 })

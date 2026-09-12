@@ -33,6 +33,9 @@ function cssEscapeId(id: string): string {
 interface FillResult {
   blocked: boolean
   reason?: string
+  /** Set only for the three "we don't recognize this question at all" cases
+   *  below - not for a fill/verify failure on a question we did match. */
+  unmatchedQuestion?: { kind: 'text' | 'select' | 'radio'; label: string }
 }
 
 /**
@@ -70,7 +73,13 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
     if (!label) continue
 
     const rule = matchRule(rules, label)
-    if (!rule) return { blocked: true, reason: `unmatched question (text): "${label}"` }
+    if (!rule) {
+      return {
+        blocked: true,
+        reason: `unmatched question (text): "${label}"`,
+        unmatchedQuestion: { kind: 'text', label }
+      }
+    }
 
     // Typeahead fields (e.g. "Location (city)") are role=combobox.
     const isTypeahead = (await inp.getAttribute('role').catch(() => null)) === 'combobox'
@@ -130,7 +139,13 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
       if (noticeRule) choice = pickNoticeOption(optionTexts, noticeRule.days ?? 0)
     }
     if (!choice) choice = yesNoOptionMatch(optionTexts, true)
-    if (!choice) return { blocked: true, reason: `unmatched question (select): "${label}"` }
+    if (!choice) {
+      return {
+        blocked: true,
+        reason: `unmatched question (select): "${label}"`,
+        unmatchedQuestion: { kind: 'select', label }
+      }
+    }
 
     await pace()
     await sel.selectOption({ label: choice }).catch(() => {})
@@ -177,7 +192,12 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
     if (!wantText) wantText = yesNoOptionMatch(optionLabels, true)
     const idx = wantText ? optionLabels.indexOf(wantText) : -1
     if (idx === -1) {
-      return { blocked: true, reason: `unmatched question (radio): "${legend || '(no legend)'}"` }
+      const label = legend || '(no legend)'
+      return {
+        blocked: true,
+        reason: `unmatched question (radio): "${label}"`,
+        unmatchedQuestion: { kind: 'radio', label }
+      }
     }
 
     // Click the <label>, not .check() on the <input> - these radios are
@@ -239,7 +259,12 @@ export async function stepThroughModal(
     const fillRes = await answerVisibleFields(modal, rules)
     if (fillRes.blocked) {
       await discardModal(page, modal)
-      return { outcome: 'needs_review', reason: fillRes.reason, header }
+      return {
+        outcome: 'needs_review',
+        reason: fillRes.reason,
+        header,
+        unmatchedQuestion: fillRes.unmatchedQuestion
+      }
     }
     await pace()
 
