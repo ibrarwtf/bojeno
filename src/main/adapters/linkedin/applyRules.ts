@@ -140,6 +140,37 @@ export function buildRules(answers: AnswerBank, jdText: string): Rule[] {
       value: answers.hybrid_days_onsite,
       kind: 'contains'
     },
+    // Skill-specific years-of-experience questions - narrower than the
+    // generic years/experience fallback further below, so these must come
+    // first or the generic rule (and, for the LangChain one, the broader
+    // agentic-tooling rule right after this block) would answer instead.
+    {
+      re: /advance(d)?\s*sql|sql\s*exp(?:erience)?|experience.{0,30}sql|sql.{0,30}experience/i,
+      value: answers.sql_experience_years,
+      kind: 'text'
+    },
+    {
+      re: /data engineering.{0,30}exper|exper.{0,30}data engineering/i,
+      value: answers.data_engineering_experience_years,
+      kind: 'text'
+    },
+    // "How many RAG applications have you built/implemented/deployed" -
+    // phrased as a count, not a years-of-experience bucket, so plain text.
+    {
+      re: /\brag\b.{0,80}(built|implement|deploy)|(built|implement|deploy).{0,80}\brag\b/i,
+      value: answers.rag_apps_built_count,
+      kind: 'text'
+    },
+    // "How many production/POC projects built with LangChain/LangGraph" -
+    // a project count, distinct from the broader agentic-tooling experience
+    // bucket rule below (which fires for bare "do you have LangChain
+    // experience" style questions). Must come before that rule since both
+    // match on the words "langchain"/"langgraph".
+    {
+      re: /(langchain|langgraph).{0,80}(built|implement|deploy|projects?)|(built|implement|deploy|projects?).{0,80}(langchain|langgraph)/i,
+      value: answers.langchain_projects_built_count,
+      kind: 'text'
+    },
     // Radio, bucket-fit by numeric range since option wording varies.
     // AI/agentic tooling gets the more honest experience bucket;
     // everything else falls through to the broader default below.

@@ -31,6 +31,10 @@
   "architecture_decision_answer": "",
   "hybrid_days_onsite": "",
   "llm_agent_experience": "",
+  "sql_experience_years": "5",
+  "data_engineering_experience_years": "4",
+  "rag_apps_built_count": "3",
+  "langchain_projects_built_count": "3",
   "years_experience_default": "5",
   "team_size_answer": "",
   "current_company": ""

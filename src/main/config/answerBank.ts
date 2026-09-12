@@ -44,6 +44,10 @@ export interface AnswerBank {
   architecture_decision_answer: string
   hybrid_days_onsite: string
   llm_agent_experience: string
+  sql_experience_years: string
+  data_engineering_experience_years: string
+  rag_apps_built_count: string
+  langchain_projects_built_count: string
   years_experience_default: string
   team_size_answer: string
   current_company: string
