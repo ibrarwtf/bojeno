@@ -1,6 +1,10 @@
 import { ipcMain } from 'electron'
 import { IpcChannels } from '../channels'
-import type { ScanJobsArgs, CreateSavedSearchArgs } from '../../../shared/ipc-contract'
+import type {
+  ScanJobsArgs,
+  CreateSavedSearchArgs,
+  RunSequentialSearchArgs
+} from '../../../shared/ipc-contract'
 import type { ApplyResult, RunMode } from '../../../shared/types'
 import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
@@ -24,6 +28,7 @@ import {
   scanJobs,
   applyToJob as applyToLinkedinJob
 } from '../../adapters/linkedin/adapter'
+import { runSequentialSearch } from '../../adapters/linkedin/sequentialRun'
 
 export function registerLinkedinHandlers(): void {
   ipcMain.handle(IpcChannels.linkedinCheckLogin, () =>
@@ -233,6 +238,92 @@ export function registerLinkedinHandlers(): void {
           })
           throw error
         }
+      })
+  )
+
+  ipcMain.handle(
+    IpcChannels.linkedinRunSequentialSearch,
+    (_event, { params, dryRun }: RunSequentialSearchArgs, mode: RunMode = 'live') =>
+      withLock('linkedin', async () => {
+        ensurePlatformViewLoaded('linkedin')
+        const db = getDb()
+        const script = 'linkedin:runSequentialSearch'
+        const startedAt = Date.now()
+
+        const loginStatus = await checkLogin()
+        if (!loginStatus.loggedIn) {
+          insertRunLog(db, {
+            script,
+            outcome: 'auth_required',
+            triggerType: 'manual',
+            runMode: mode,
+            duration: Date.now() - startedAt
+          })
+          return { total: 0, applied: 0, skipped: 0, failed: 0 }
+        }
+
+        const effectiveDryRun = mode === 'live' ? dryRun : true
+
+        const summary = await runSequentialSearch(params, effectiveDryRun, {
+          // Same gate applyToJob's own handler uses - checked here too since this
+          // walk decides per-job whether to apply at all, applyToJob never sees a
+          // blacklisted job.
+          decide: (_step, details) =>
+            isCompanyBlacklisted(db, details.company)
+              ? `blacklisted company: ${details.company}`
+              : undefined,
+          onSkipped: (step, reason) =>
+            insertRunLog(db, {
+              script: `${script}:job`,
+              outcome: 'skipped',
+              triggerType: 'manual',
+              runMode: mode,
+              entityType: 'job',
+              entityId: step.card.id,
+              errorDetail: reason
+            }),
+          onApplyResult: (step, result) => {
+            const attemptedAt = new Date().toISOString()
+            if (mode !== 'read-only') {
+              insertApplyAttempt(db, {
+                platform: 'linkedin',
+                externalJobId: step.card.id,
+                outcome: result.outcome,
+                reason: result.reason,
+                header: result.header,
+                dryRun: effectiveDryRun,
+                attemptedAt
+              })
+            }
+            insertRunLog(db, {
+              script: `${script}:job`,
+              outcome: result.outcome === 'error' ? 'failed' : 'success',
+              triggerType: 'manual',
+              runMode: mode,
+              entityType: 'job',
+              entityId: step.card.id
+            })
+          },
+          onError: (step, error) =>
+            insertRunLog(db, {
+              script: `${script}:job`,
+              outcome: 'failed',
+              triggerType: 'manual',
+              runMode: mode,
+              entityType: 'job',
+              entityId: step.card.id,
+              errorDetail: error instanceof Error ? { message: error.message } : error
+            })
+        })
+
+        insertRunLog(db, {
+          script,
+          outcome: 'success',
+          triggerType: 'manual',
+          runMode: mode,
+          duration: Date.now() - startedAt
+        })
+        return summary
       })
   )
 

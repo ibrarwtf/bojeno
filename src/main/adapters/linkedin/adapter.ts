@@ -4,7 +4,8 @@ import type {
   JobDetails,
   LoginStatus,
   ScannedJobCard,
-  ScrapedJob
+  ScrapedJob,
+  SearchUrlParams
 } from '../../../shared/types'
 import { findPageByUrlPart, gotoWithRetry, waitForPathname } from '../../cdp'
 import { linkedinSelectors } from './selectors'
@@ -196,12 +197,7 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
  * raw leaves to the pure, unit-tested parseCardFromLeaves for the actual
  * field extraction.
  */
-export async function scanJobs(params: {
-  keywords?: string
-  location?: string
-  sortByRecent?: boolean
-  easyApplyOnly?: boolean
-}): Promise<ScannedJobCard[]> {
+export async function scanJobs(params: SearchUrlParams): Promise<ScannedJobCard[]> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, buildSearchUrl(params), { waitUntil: 'domcontentloaded' })
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)

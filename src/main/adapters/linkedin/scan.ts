@@ -7,7 +7,14 @@
  * in no fixed position, so badges are found by pattern rather than index.
  */
 
-import type { ScannedJobCard } from '../../../shared/types'
+import type {
+  DatePosted,
+  ExperienceLevel,
+  JobType,
+  ScannedJobCard,
+  SearchUrlParams,
+  WorkplaceType
+} from '../../../shared/types'
 
 const BADGE_PATTERN =
   /connections? work here|school alumni works here|actively reviewing applicants|early applicant|^applicants?$|premium|^viewed$/i
@@ -41,18 +48,43 @@ export function parseCardFromLeaves(id: string, leaves: string[]): ScannedJobCar
   return { id, title, company, location, easyApply, alreadyApplied, postedRelative, parseWarning }
 }
 
+const DATE_POSTED_VALUES: Record<DatePosted, string> = {
+  past24Hours: 'r86400',
+  pastWeek: 'r604800',
+  pastMonth: 'r2592000'
+}
+
+const EXPERIENCE_LEVEL_VALUES: Record<ExperienceLevel, string> = {
+  internship: '1',
+  entryLevel: '2',
+  associate: '3',
+  midSenior: '4',
+  director: '5',
+  executive: '6'
+}
+
+const JOB_TYPE_VALUES: Record<JobType, string> = {
+  fullTime: 'F',
+  partTime: 'P',
+  contract: 'C',
+  temporary: 'T',
+  volunteer: 'V',
+  other: 'O'
+}
+
+const WORKPLACE_TYPE_VALUES: Record<WorkplaceType, string> = {
+  onSite: '1',
+  remote: '2',
+  hybrid: '3'
+}
+
 /**
  * Classic search page, forced via origin= rather than left to LinkedIn's
  * newer semantic-search default - per live walkthrough, classic mode has
  * the "Most recent" sort and real freshness buckets the semantic page
  * doesn't expose.
  */
-export function buildSearchUrl(params: {
-  keywords?: string
-  location?: string
-  sortByRecent?: boolean
-  easyApplyOnly?: boolean
-}): string {
+export function buildSearchUrl(params: SearchUrlParams): string {
   const url = new URL('https://www.linkedin.com/jobs/search/')
   if (params.keywords) url.searchParams.set('keywords', params.keywords)
   if (params.location) url.searchParams.set('location', params.location)
@@ -61,5 +93,21 @@ export function buildSearchUrl(params: {
   if (params.sortByRecent) url.searchParams.set('sortBy', 'DD')
   // LinkedIn's own "Easy Apply" filter checkbox.
   if (params.easyApplyOnly) url.searchParams.set('f_AL', 'true')
+  if (params.datePosted) url.searchParams.set('f_TPR', DATE_POSTED_VALUES[params.datePosted])
+  if (params.experienceLevels?.length) {
+    url.searchParams.set(
+      'f_E',
+      params.experienceLevels.map((level) => EXPERIENCE_LEVEL_VALUES[level]).join(',')
+    )
+  }
+  if (params.jobTypes?.length) {
+    url.searchParams.set('f_JT', params.jobTypes.map((type) => JOB_TYPE_VALUES[type]).join(','))
+  }
+  if (params.workplaceTypes?.length) {
+    url.searchParams.set(
+      'f_WT',
+      params.workplaceTypes.map((type) => WORKPLACE_TYPE_VALUES[type]).join(',')
+    )
+  }
   return url.toString()
 }

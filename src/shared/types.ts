@@ -89,6 +89,39 @@ export interface LinkedinSavedSearch {
   lastRunAt: string | null
 }
 
+/** LinkedIn's own "Date posted" filter options (f_TPR). */
+export type DatePosted = 'past24Hours' | 'pastWeek' | 'pastMonth'
+
+/** LinkedIn's own "Experience level" filter options (f_E), multi-select. */
+export type ExperienceLevel =
+  'internship' | 'entryLevel' | 'associate' | 'midSenior' | 'director' | 'executive'
+
+/** LinkedIn's own "Job type" filter options (f_JT), multi-select. */
+export type JobType = 'fullTime' | 'partTime' | 'contract' | 'temporary' | 'volunteer' | 'other'
+
+/** LinkedIn's own "Remote" / workplace-type filter options (f_WT), multi-select. */
+export type WorkplaceType = 'onSite' | 'remote' | 'hybrid'
+
+/** Params buildSearchUrl turns into a LinkedIn jobs-search URL. */
+export interface SearchUrlParams {
+  keywords?: string
+  location?: string
+  sortByRecent?: boolean
+  easyApplyOnly?: boolean
+  datePosted?: DatePosted
+  experienceLevels?: ExperienceLevel[]
+  jobTypes?: JobType[]
+  workplaceTypes?: WorkplaceType[]
+}
+
+/** Outcome tally from a runSequentialSearch pass over one search's job list. */
+export interface SequentialRunSummary {
+  total: number
+  applied: number
+  skipped: number
+  failed: number
+}
+
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
 export interface JobDetails {
   jobUrl: string
