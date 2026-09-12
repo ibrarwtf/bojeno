@@ -45,6 +45,10 @@ const ANSWERS: AnswerBank = {
   architecture_decision_answer: 'Architecture decision.',
   hybrid_days_onsite: '2 days',
   llm_agent_experience: '1-2 years',
+  sql_experience_years: '5 years',
+  data_engineering_experience_years: '4 years',
+  rag_apps_built_count: '3',
+  langchain_projects_built_count: '3',
   years_experience_default: '5',
   team_size_answer: 'None',
   current_company: 'Test Co'
@@ -102,6 +106,72 @@ describe('buildRules + matchRule', () => {
 
   it('returns undefined for an unmatched question', () => {
     expect(matchRule(rules, 'What is your favorite color?')).toBeUndefined()
+  })
+})
+
+describe('skill-specific experience/count rules', () => {
+  const rules = buildRules(ANSWERS, '')
+
+  it('matches the exact "Advance SQL" question', () => {
+    const rule = matchRule(rules, 'What is your experience in Advance SQL?')
+    expect(rule?.value).toBe('5 years')
+  })
+
+  it('matches a rephrased SQL variant without the typo', () => {
+    const rule = matchRule(rules, 'How many years of Advanced SQL experience do you have?')
+    expect(rule?.value).toBe('5 years')
+  })
+
+  it('matches the exact Data Engineering question', () => {
+    const rule = matchRule(rules, 'What is experience in Data Engineering?')
+    expect(rule?.value).toBe('4 years')
+  })
+
+  it('matches a rephrased Data Engineering variant', () => {
+    const rule = matchRule(rules, 'Do you have experience with Data Engineering?')
+    expect(rule?.value).toBe('4 years')
+  })
+
+  it('matches the exact RAG applications question', () => {
+    const rule = matchRule(
+      rules,
+      'How many RAG applications have you personally implemented using LLMs, embeddings, and vector databases?'
+    )
+    expect(rule?.value).toBe('3')
+  })
+
+  it('matches a rephrased RAG variant', () => {
+    const rule = matchRule(rules, 'How many RAG apps have you built?')
+    expect(rule?.value).toBe('3')
+  })
+
+  it('matches the exact LangChain/LangGraph projects question', () => {
+    const rule = matchRule(
+      rules,
+      'How many production or POC projects have you personally built using LangChain and/or LangGraph for Agentic AI?'
+    )
+    expect(rule?.value).toBe('3')
+  })
+
+  it('matches a rephrased LangChain/LangGraph variant without hijacking the broader agentic-experience rule', () => {
+    const rule = matchRule(
+      rules,
+      'Number of LangChain/LangGraph production or POC projects you have built'
+    )
+    expect(rule?.value).toBe('3')
+    expect(rule?.kind).toBe('text')
+  })
+
+  it('still lets a bare LangChain experience question fall through to the broader agentic-tooling rule', () => {
+    const rule = matchRule(rules, 'What is your experience with LangChain?')
+    expect(rule?.value).toBe('1-2 years')
+    expect(rule?.kind).toBe('experience')
+  })
+
+  it('still lets a bare generic years-of-experience question hit the default rule, not the new SQL rule', () => {
+    const rule = matchRule(rules, 'How many years of professional experience do you have?')
+    expect(rule?.value).toBe('5')
+    expect(rule?.kind).toBe('experience')
   })
 })
 
