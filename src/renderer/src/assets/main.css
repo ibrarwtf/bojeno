@@ -255,17 +255,27 @@ body {
   color: var(--ev-c-text-2);
 }
 
-.log-panel-outcome-success {
+.log-panel-outcome-success,
+.log-panel-outcome-done,
+.log-panel-outcome-applied {
   color: #2da44e;
 }
 
-.log-panel-outcome-failed,
-.log-panel-outcome-auth_required {
-  color: #cf222e;
+.log-panel-outcome-dry-run-applied {
+  color: #2da4c8;
 }
 
+.log-panel-outcome-review-needed,
 .log-panel-outcome-skipped {
   color: #9a6700;
+}
+
+.log-panel-outcome-failed,
+.log-panel-outcome-error,
+.log-panel-outcome-auth_required,
+.log-panel-outcome-auth-required,
+.log-panel-outcome-rate-limited {
+  color: #cf222e;
 }
 
 .log-panel-outcome-pending {

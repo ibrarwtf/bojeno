@@ -12,6 +12,49 @@ const SCRIPT_LABELS: Record<string, string> = {
   'linkedin:fetchRecentAppliedJobs': 'Fetch recent applied jobs'
 }
 
+/**
+ * One-word action taken for this row, for the status column - not the raw
+ * DB `outcome` enum (which only knows 'success'/'failed'/'skipped'/... and
+ * can't tell an actual apply from a dry run from a review-needed case, all
+ * three of which are stored as 'success'). Falls back to `outcome` itself
+ * for rows with no per-job result (the run's own summary row, auth/rate
+ * errors, etc).
+ */
+function statusWord(row: RunLogRow): string {
+  const detail = row.detail as Record<string, unknown> | null
+  switch (detail?.resultOutcome) {
+    case 'applied':
+      return 'applied'
+    case 'dry_run_ok':
+      return 'dry-run applied'
+    case 'needs_review':
+      return 'review needed'
+    case 'skipped':
+      return 'skipped'
+    case 'error':
+      return 'error'
+  }
+  switch (row.outcome) {
+    case 'failed':
+      return 'error'
+    case 'auth_required':
+      return 'auth required'
+    case 'rate_limited':
+      return 'rate limited'
+    case 'awaiting_input':
+      return 'awaiting input'
+    case 'success':
+      return 'done'
+    default:
+      return row.outcome
+  }
+}
+
+/** CSS-safe modifier for statusWord()'s text, e.g. "review needed" -> "review-needed". */
+function statusWordClass(row: RunLogRow): string {
+  return statusWord(row).replace(/\s+/g, '-')
+}
+
 function describeRow(row: RunLogRow): string {
   const detail = row.detail as Record<string, unknown> | null
   if (!detail) return SCRIPT_LABELS[row.script] ?? row.script
@@ -34,11 +77,7 @@ function describeRow(row: RunLogRow): string {
     return `${appliedLabel}/${s.total} · ${s.needsReview} needs review · ${s.skipped} skipped · ${s.failed} failed`
   }
 
-  if (typeof detail.resultReason === 'string') {
-    return detail.dryRun ? `${detail.resultReason} (dry run)` : detail.resultReason
-  }
-  if (detail.resultOutcome === 'dry_run_ok') return 'dry-run applied (not actually submitted)'
-  if (detail.resultOutcome === 'applied') return 'applied'
+  if (typeof detail.resultReason === 'string') return detail.resultReason
   if (detail.applicantCount) return `${detail.applicantCount} applicants`
 
   return SCRIPT_LABELS[row.script] ?? row.script
@@ -125,13 +164,16 @@ export function LogPanel(): React.JSX.Element {
                   <span className="log-panel-time">
                     {new Date(row.timestamp).toLocaleTimeString()}
                   </span>
-                  <span className="log-panel-script">
-                    {SCRIPT_LABELS[row.script] ?? row.script}
+                  <span className={`log-panel-outcome log-panel-outcome-${statusWordClass(row)}`}>
+                    {statusWord(row)}
                   </span>
-                  <span className={`log-panel-outcome log-panel-outcome-${row.outcome}`}>
-                    {row.outcome}
-                  </span>
-                  {jobLabel(row) && <span className="log-panel-job">{jobLabel(row)}</span>}
+                  {jobLabel(row) ? (
+                    <span className="log-panel-job">{jobLabel(row)}</span>
+                  ) : (
+                    <span className="log-panel-script">
+                      {SCRIPT_LABELS[row.script] ?? row.script}
+                    </span>
+                  )}
                   <span className="log-panel-detail">{describeRow(row)}</span>
                 </div>
               )
@@ -172,8 +214,8 @@ export function LogPanel(): React.JSX.Element {
                     <span className="log-panel-time">
                       {new Date(row.timestamp).toLocaleTimeString()}
                     </span>
-                    <span className={`log-panel-outcome log-panel-outcome-${row.outcome}`}>
-                      {row.outcome}
+                    <span className={`log-panel-outcome log-panel-outcome-${statusWordClass(row)}`}>
+                      {statusWord(row)}
                     </span>
                     <span className="log-panel-job">{jobLabel(row) ?? row.entityId}</span>
                     <span className="log-panel-detail">{describeRow(row)}</span>
