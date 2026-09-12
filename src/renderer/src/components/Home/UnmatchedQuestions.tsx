@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { UnmatchedQuestionRow } from '../../../../shared/types'
 
+// TODO: open-ended/explain-style questions ("describe a RAG system you've
+// built", etc.) get a free-text box here same as everything else, but a
+// human still has to write the actual answer by hand every time. The
+// eventual fix is an LLM call generating a draft answer, not a rule - keep
+// that as its own follow-up, not bundled into this panel's first version.
+
 interface QuestionGroup {
   questionLabel: string
   rows: UnmatchedQuestionRow[]
