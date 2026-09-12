@@ -1,13 +1,14 @@
 /**
  * Walks a search's job openings one at a time - navigate to results, discover
- * the ordered list of cards, then for each one in turn: capture its JD,
- * decide apply-or-skip, apply (or not), advance. Replaces the old two-step
- * model (scanJobs returns everything up front, a separate applyToJob(jobId)
- * call applies to whichever one the caller picked) with the sequential model
- * a real user actually follows on the results page. Each step below is its
- * own small function so a caller (the IPC handler) can hook in DB-backed
- * effects - blacklist checks, run-log rows, apply-attempt rows - without this
- * module knowing anything about the database.
+ * the ordered list of cards, then for each one in turn: select its card,
+ * capture its JD from the in-place detail pane, decide apply-or-skip, apply
+ * (or not) from that same pane, advance. This is the same path a real user
+ * follows on the results page - select a card, read the pane, click its
+ * Easy Apply button - never navigating to a separate URL per job (see
+ * searchPaneApply.ts). Each step below is its own small function so a
+ * caller (the IPC handler) can hook in DB-backed effects - blacklist
+ * checks, run-log rows, apply-attempt rows - without this module knowing
+ * anything about the database.
  */
 import type {
   ApplyResult,
@@ -16,14 +17,13 @@ import type {
   SearchUrlParams,
   SequentialRunSummary
 } from '../../../shared/types'
-import { scanJobs, captureJobDetails, applyToJob } from './adapter'
+import { scanJobs, jobUrlFor } from './adapter'
+import { selectJobCard, captureActiveJobDetails, applyFromSearchResults } from './searchPaneApply'
+
+export { jobUrlFor }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 const paceBetweenJobs = (): Promise<void> => sleep(3000 + Math.floor(Math.random() * 3000))
-
-export function jobUrlFor(jobId: string): string {
-  return `https://www.linkedin.com/jobs/view/${jobId}/`
-}
 
 export interface SequentialRunStep {
   card: ScannedJobCard
@@ -75,7 +75,8 @@ export async function runSequentialSearch(
 
     let details: JobDetails | undefined
     try {
-      details = await captureJobDetails(jobUrlFor(card.id))
+      await selectJobCard(card.id)
+      details = await captureActiveJobDetails(card.id)
       const skipReason = hooks.decide(step, details)
       if (skipReason) {
         summary.skipped++
@@ -83,7 +84,7 @@ export async function runSequentialSearch(
         continue
       }
 
-      const result = await applyToJob(card.id, dryRun)
+      const result = await applyFromSearchResults(dryRun)
       summary.applied += result.outcome === 'error' ? 0 : 1
       summary.failed += result.outcome === 'error' ? 1 : 0
       hooks.onApplyResult?.(step, result, details)
