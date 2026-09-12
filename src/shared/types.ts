@@ -215,15 +215,34 @@ export interface JobDetails {
   jobPosterProfileUrl: string | null
 }
 
-/** Parsed out of a LinkedIn company's /about page - see companies table (db/queries/companies.ts). */
+/**
+ * One row per company - populated from two independent sources that never
+ * overwrite each other's fields (see companies.ts's upsert functions):
+ * `fetchCompanyAboutInfo`'s live LinkedIn /about scrape (url/website/
+ * industry/companySize/founded/specialties/overview), and the one-time GCC
+ * research import (`scripts/import-gcc-companies.cjs`, hqCountry/
+ * indiaCities/careersUrl/ats/status/skipReason/remark). `url` is nullable
+ * since an imported company may have no resolved LinkedIn id/URL yet.
+ */
 export interface CompanyAboutInfo {
   linkedinCompanyId: string | null
   name: string | null
-  url: string
+  url: string | null
   website: string | null
   industry: string | null
   companySize: string | null
   founded: string | null
   specialties: string | null
   overview: string | null
+  hqCountry: string | null
+  /** India office cities, when confirmed - e.g. ["Hyderabad", "Bengaluru"]. */
+  indiaCities: string[] | null
+  careersUrl: string | null
+  /** Applicant tracking system, when known - e.g. "greenhouse", "workday". */
+  ats: string | null
+  /** "active" | "skip" from the GCC research import; null for a company only ever seen via a real apply. */
+  status: string | null
+  skipReason: string | null
+  /** Free-text provenance note, e.g. "GCC imported from file at 2026-09-12". */
+  remark: string | null
 }

@@ -165,6 +165,16 @@ export async function fetchCompanyAboutInfo(
     linkedinCompanyId: extractCompanyIdFromHtml(html),
     name: knownName,
     url: companyUrl,
-    ...parseCompanyAboutText(text)
+    ...parseCompanyAboutText(text),
+    // Only ever set by the GCC research import (scripts/import-gcc-companies.cjs) -
+    // a live /about scrape has no opinion on these, and upsertCompany never
+    // includes them in its SQL, so an existing imported value is untouched.
+    hqCountry: null,
+    indiaCities: null,
+    careersUrl: null,
+    ats: null,
+    status: null,
+    skipReason: null,
+    remark: null
   }
 }

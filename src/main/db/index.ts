@@ -18,6 +18,7 @@ import blacklistHiredSql from './migrations/20260912T0500_blacklist_hired.sql?ra
 import blacklistReasonSql from './migrations/20260912T0600_blacklist_reason.sql?raw'
 import blacklistMoreSpamAgenciesSql from './migrations/20260912T0700_blacklist_more_spam_agencies.sql?raw'
 import companiesSql from './migrations/20260912T0800_companies.sql?raw'
+import companiesGccFieldsSql from './migrations/20260912T0900_companies_gcc_fields.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -39,7 +40,8 @@ const migrations: Migration[] = [
     id: '20260912T0700_blacklist_more_spam_agencies.sql',
     sql: blacklistMoreSpamAgenciesSql
   },
-  { id: '20260912T0800_companies.sql', sql: companiesSql }
+  { id: '20260912T0800_companies.sql', sql: companiesSql },
+  { id: '20260912T0900_companies_gcc_fields.sql', sql: companiesGccFieldsSql }
 ]
 
 let db: DatabaseSync | undefined
