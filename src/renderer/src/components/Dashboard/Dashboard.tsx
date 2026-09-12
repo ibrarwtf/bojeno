@@ -5,6 +5,7 @@ import { SavedSearches } from '../LinkedIn/SavedSearches'
 import { UrlBar } from '../UrlBar/UrlBar'
 import { LogPanel } from '../LogPanel/LogPanel'
 import { Home } from '../Home/Home'
+import { Pipeline } from '../Pipeline/Pipeline'
 
 export function Dashboard(): React.JSX.Element {
   const [activeView, setActiveView] = useState<ActiveView>('home')
@@ -12,7 +13,7 @@ export function Dashboard(): React.JSX.Element {
 
   function selectView(view: ActiveView): void {
     setActiveView(view)
-    if (view === 'home') {
+    if (view === 'home' || view === 'pipeline') {
       void window.bojeno.showHome()
     } else {
       void window.bojeno.activateTab({ platform: view })
@@ -23,6 +24,11 @@ export function Dashboard(): React.JSX.Element {
     <>
       <Sidebar activeView={activeView} onSelectView={selectView} />
       {activeView === 'home' && <Home />}
+      {activeView === 'pipeline' && (
+        <div className="home">
+          <Pipeline />
+        </div>
+      )}
       {activeView === 'linkedin' && (
         <>
           <SavedSearches selectedId={selectedSearchId} onSelect={setSelectedSearchId} />

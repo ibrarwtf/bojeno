@@ -1,7 +1,7 @@
 import type { Platform } from '../../../../shared/types'
 import { cn } from '@renderer/lib/utils'
 
-export type ActiveView = 'home' | Platform
+export type ActiveView = 'home' | 'pipeline' | Platform
 
 const platforms: { id: Platform; label: string; icon: string; soon?: boolean }[] = [
   { id: 'linkedin', label: 'LinkedIn', icon: 'in' },
@@ -58,6 +58,13 @@ export function Sidebar({
           onClick={() => onSelectView('home')}
         >
           ⌂
+        </SidebarItem>
+        <SidebarItem
+          active={activeView === 'pipeline'}
+          title="Pipeline"
+          onClick={() => onSelectView('pipeline')}
+        >
+          ☎
         </SidebarItem>
         <div className="flex flex-col gap-1">
           {platforms.map((p) => (
