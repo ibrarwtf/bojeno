@@ -11,7 +11,8 @@ import type {
   RunLogRow,
   ScannedJobCard,
   SearchUrlParams,
-  SequentialRunSummary
+  SequentialRunSummary,
+  UnmatchedQuestionRow
 } from './types'
 
 export const IpcChannels = {
@@ -32,6 +33,7 @@ export const IpcChannels = {
   platformGetActiveTabUrl: 'platform:getActiveTabUrl',
   trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
   trackerGetRunLogs: 'tracker:getRunLogs',
+  trackerGetUnmatchedQuestions: 'tracker:getUnmatchedQuestions',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -110,6 +112,10 @@ export interface IpcContract {
   [IpcChannels.trackerGetRunLogs]: {
     args: []
     return: RunLogRow[]
+  }
+  [IpcChannels.trackerGetUnmatchedQuestions]: {
+    args: []
+    return: UnmatchedQuestionRow[]
   }
   [IpcChannels.linkedinSavedSearchesList]: {
     args: []

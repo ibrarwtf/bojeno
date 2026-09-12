@@ -141,12 +141,37 @@ export interface SearchUrlParams {
   workplaceTypes?: WorkplaceType[]
 }
 
-/** Outcome tally from a runSequentialSearch pass over one search's job list. */
+/**
+ * Outcome tally from a runSequentialSearch pass over one search's job list.
+ * `applied` and `dryRunApplied` are mutually exclusive - which one a given
+ * job's ApplyResult counts toward depends on the dryRun flag the run itself
+ * was made with, never on the outcome alone, so a dry run can never inflate
+ * `applied`. `needsReview` is its own bucket, not folded into either -
+ * nothing was actually submitted for those.
+ */
 export interface SequentialRunSummary {
   total: number
   applied: number
+  dryRunApplied: number
+  needsReview: number
   skipped: number
   failed: number
+}
+
+/** One apply-modal question the answer bank couldn't match - queued for review. */
+export interface UnmatchedQuestionRow {
+  id: number
+  platform: Platform
+  externalJobId: string
+  jobUrl: string
+  jobTitle: string | null
+  company: string | null
+  questionKind: 'text' | 'select' | 'radio'
+  questionLabel: string
+  detectedAt: string
+  resolved: boolean
+  answer: string | null
+  runId: string | null
 }
 
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */

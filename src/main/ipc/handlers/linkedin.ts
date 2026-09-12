@@ -33,6 +33,7 @@ import {
 } from '../../adapters/linkedin/adapter'
 import { runSequentialSearch, jobUrlFor } from '../../adapters/linkedin/sequentialRun'
 import { evaluateApplicantPreference } from '../../adapters/linkedin/preferencesGate'
+import { buildTitleFilter } from '../../adapters/linkedin/titleFilter'
 import { loadPreferences, type JobFilterPreferences } from '../../config/preferences'
 import type { DatabaseSync } from 'node:sqlite'
 
@@ -295,6 +296,7 @@ export function registerLinkedinHandlers(): void {
             detail: {
               resultOutcome: result.outcome,
               resultReason: result.reason,
+              dryRun,
               ...parsedSignalDetail(details)
             }
           })
@@ -344,13 +346,19 @@ export function registerLinkedinHandlers(): void {
             duration: Date.now() - startedAt,
             detail: { params }
           })
-          return { total: 0, applied: 0, skipped: 0, failed: 0 }
+          return { total: 0, applied: 0, dryRunApplied: 0, needsReview: 0, skipped: 0, failed: 0 }
         }
 
         const effectiveDryRun = mode === 'live' ? dryRun : true
         const preferences = loadPreferences()
+        const titleFilter = buildTitleFilter(preferences.titleFilter)
 
         const summary = await runSequentialSearch(params, effectiveDryRun, {
+          // Cheap card-level check, before selectJobCard/JD capture ever
+          // happens - see titleFilter.ts. Skips a card whose title doesn't
+          // pass the user's own positive/negative keyword config.
+          filterCard: (card) =>
+            titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
           // Same gate applyToJob's own handler uses - checked here too since this
           // walk decides per-job whether to apply at all, applyToJob never sees a
           // blacklisted or over-preference job. Also where the JD capture gets
@@ -405,6 +413,7 @@ export function registerLinkedinHandlers(): void {
               detail: {
                 resultOutcome: result.outcome,
                 resultReason: result.reason,
+                dryRun: effectiveDryRun,
                 ...parsedSignalDetail(details)
               }
             })
@@ -435,7 +444,7 @@ export function registerLinkedinHandlers(): void {
           triggerType: 'manual',
           runMode: mode,
           duration: Date.now() - startedAt,
-          detail: { params, summary }
+          detail: { params, dryRun: effectiveDryRun, summary }
         })
         return summary
       })

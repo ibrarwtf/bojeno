@@ -20,11 +20,25 @@ function describeRow(row: RunLogRow): string {
   if (row.outcome === 'failed' && typeof detail.message === 'string') return detail.message
 
   if (row.script === 'linkedin:runSequentialSearch' && detail.summary) {
-    const s = detail.summary as { total: number; applied: number; skipped: number; failed: number }
-    return `${s.applied}/${s.total} applied · ${s.skipped} skipped · ${s.failed} failed`
+    const s = detail.summary as {
+      total: number
+      applied: number
+      dryRunApplied: number
+      needsReview: number
+      skipped: number
+      failed: number
+    }
+    const appliedLabel = detail.dryRun
+      ? `${s.dryRunApplied} dry-run applied`
+      : `${s.applied} applied`
+    return `${appliedLabel}/${s.total} · ${s.needsReview} needs review · ${s.skipped} skipped · ${s.failed} failed`
   }
 
-  if (typeof detail.resultReason === 'string') return detail.resultReason
+  if (typeof detail.resultReason === 'string') {
+    return detail.dryRun ? `${detail.resultReason} (dry run)` : detail.resultReason
+  }
+  if (detail.resultOutcome === 'dry_run_ok') return 'dry-run applied (not actually submitted)'
+  if (detail.resultOutcome === 'applied') return 'applied'
   if (detail.applicantCount) return `${detail.applicantCount} applicants`
 
   return SCRIPT_LABELS[row.script] ?? row.script
