@@ -7,6 +7,7 @@ import type {
   ScrapedJob,
   SearchUrlParams
 } from '../../../shared/types'
+import type { Page } from 'playwright-core'
 import { findPageByUrlPart, gotoWithRetry, waitForPathname } from '../../cdp'
 import { linkedinSelectors } from './selectors'
 import { parseAppliedRelativeText, isWithinPast24Hours } from './relativeTime'
@@ -221,13 +222,11 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
  * walks each card's leaf text nodes in-page (structural, not string-split,
  * since badge counts vary per card but leaf order doesn't), then hands the
  * raw leaves to the pure, unit-tested parseCardFromLeaves for the actual
- * field extraction.
+ * field extraction. Scoped to whatever's currently loaded - shared by
+ * scanJobs (which navigates to page 1 first) and sequentialRun's pagination
+ * walk (which stays on the same page after clicking "next").
  */
-export async function scanJobs(params: SearchUrlParams): Promise<ScannedJobCard[]> {
-  const page = await findPageByUrlPart('linkedin.com')
-  await gotoWithRetry(page, buildSearchUrl(params), { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
-
+async function collectCardsFromCurrentPage(page: Page): Promise<ScannedJobCard[]> {
   for (let i = 0; i < 5; i++) {
     await page.mouse.wheel(0, 1800)
     await page.waitForTimeout(700)
@@ -251,7 +250,87 @@ export async function scanJobs(params: SearchUrlParams): Promise<ScannedJobCard[
     return out
   })
 
-  return rawCards.map(({ id, leaves }) => parseCardFromLeaves(id, leaves))
+  // LinkedIn's results DOM can carry the same job id twice (e.g. a promoted
+  // slot duplicating a regular-list entry) - confirmed live: an unde-duped
+  // list applied to a job once, then reprocessed the same id a few cards
+  // later, this time misreading the pane (now showing "Applied") as if no
+  // Easy Apply button existed at all. Keep only the first occurrence.
+  const seen = new Set<string>()
+  const deduped = rawCards.filter(({ id }) => (seen.has(id) ? false : (seen.add(id), true)))
+
+  return deduped.map(({ id, leaves }) => parseCardFromLeaves(id, leaves))
+}
+
+export async function scanJobs(params: SearchUrlParams): Promise<ScannedJobCard[]> {
+  const page = await findPageByUrlPart('linkedin.com')
+  await gotoWithRetry(page, buildSearchUrl(params), { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+  return collectCardsFromCurrentPage(page)
+}
+
+/** Re-scans whatever's currently loaded on the search-results page, without
+ *  navigating - for the pagination walk, after goToNextPage has already
+ *  moved to a new page of the same search. */
+export async function scanCurrentPage(): Promise<ScannedJobCard[]> {
+  const page = await findPageByUrlPart('linkedin.com')
+  return collectCardsFromCurrentPage(page)
+}
+
+export interface PaginationState {
+  currentPage: number
+  totalPages: number
+}
+
+/**
+ * Reads LinkedIn's own "Page X of Y" pagination footer
+ * (.jobs-search-pagination__page-state) - present once results span more
+ * than one page, absent for a small result set. Confirmed live: the footer
+ * always exposes this exact text alongside a single "View next page"
+ * button while walking forward (no "previous" button competing for the
+ * click on page 1), so there's never any ambiguity about what to click.
+ */
+export async function readPaginationState(page: Page): Promise<PaginationState | null> {
+  const stateText = await page
+    .locator('.jobs-search-pagination__page-state')
+    .first()
+    .textContent()
+    .catch(() => null)
+  const match = stateText ? /Page\s+(\d+)\s+of\s+(\d+)/i.exec(stateText) : null
+  if (!match) return null
+  return { currentPage: Number(match[1]), totalPages: Number(match[2]) }
+}
+
+/**
+ * Clicks LinkedIn's own "View next page" control and waits for the results
+ * list to actually refresh (the first card's id changing) rather than a
+ * fixed sleep. Returns false without clicking anything if there's no next
+ * page to go to (last page, or no pagination at all) - callers use this
+ * return value to know whether to keep walking, not a separate state check.
+ */
+export async function goToNextPage(page: Page): Promise<boolean> {
+  const nextBtn = page.locator('button[aria-label="View next page"]').first()
+  if (!(await nextBtn.count().catch(() => 0))) return false
+  if (await nextBtn.isDisabled().catch(() => true)) return false
+
+  const firstIdBefore = await page
+    .locator('li[data-occludable-job-id]')
+    .first()
+    .getAttribute('data-occludable-job-id')
+    .catch(() => null)
+
+  await nextBtn.click({ timeout: 5000 }).catch(() => nextBtn.click({ force: true, timeout: 5000 }))
+  await page
+    .waitForFunction(
+      (prevId) => {
+        const first = document.querySelector('li[data-occludable-job-id]')
+        return first ? first.getAttribute('data-occludable-job-id') !== prevId : false
+      },
+      firstIdBefore,
+      { timeout: 8000 }
+    )
+    .catch(() => undefined)
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+  return true
 }
 
 /**

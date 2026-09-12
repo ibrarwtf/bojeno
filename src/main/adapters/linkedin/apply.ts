@@ -231,6 +231,31 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
   return { blocked: false, unmatchedQuestions }
 }
 
+/**
+ * Closes LinkedIn's own "Application sent" confirmation dialog that
+ * replaces the apply modal on a real successful submit. Left open, it sits
+ * on top of the search-results list and can swallow the next job's card
+ * click entirely - confirmed live: the next card never actually got
+ * selected (the URL's currentJobId never changed), and the pane silently
+ * kept showing the just-applied-to job, which then got reprocessed and
+ * misread as a fresh "no Easy Apply button" skip under the wrong job's id.
+ */
+export async function dismissApplyConfirmation(page: Page): Promise<void> {
+  const dialog = page.locator('div[role="dialog"]').first()
+  if (!(await dialog.count().catch(() => 0))) return
+  const dismissBtn = dialog.locator('button[aria-label="Dismiss"]').first()
+  if (await dismissBtn.count().catch(() => 0)) {
+    await dismissBtn.click().catch(() => {})
+  } else {
+    const doneBtn = dialog.locator('button', { hasText: 'Done' }).first()
+    if (await doneBtn.count().catch(() => 0)) await doneBtn.click().catch(() => {})
+    else await page.keyboard.press('Escape').catch(() => {})
+  }
+  await page
+    .waitForFunction(() => !document.querySelector('div[role="dialog"]'), { timeout: 4000 })
+    .catch(() => undefined)
+}
+
 export async function discardModal(page: Page, modal: Locator): Promise<void> {
   const dismiss = modal.locator('button[aria-label="Dismiss"]').first()
   if (await dismiss.count()) await dismiss.click().catch(() => {})
@@ -355,6 +380,7 @@ export async function stepThroughModal(
       // closed outright, or replaced by the confirmation) and only remains
       // if the submit genuinely never went through.
       const submitStillThere = await submitBtn.count().catch(() => 0)
+      if (!submitStillThere) await dismissApplyConfirmation(page)
       return {
         outcome: submitStillThere ? 'error' : 'applied',
         header,

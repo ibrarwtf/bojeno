@@ -35,6 +35,7 @@ export const IpcChannels = {
   trackerGetAppliedCountHistory: 'tracker:getAppliedCountHistory',
   trackerGetRunLogs: 'tracker:getRunLogs',
   trackerGetUnmatchedQuestions: 'tracker:getUnmatchedQuestions',
+  trackerResolveUnmatchedQuestion: 'tracker:resolveUnmatchedQuestion',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -53,6 +54,9 @@ export interface RunSequentialSearchArgs {
   runId: string
   params: SearchUrlParams
   dryRun: boolean
+  /** The saved search's own name, purely for the run-log summary row's
+   *  display - an ad-hoc/manual run (none exists yet) simply omits it. */
+  savedSearchName?: string
 }
 
 export interface CreateSavedSearchArgs {
@@ -125,6 +129,10 @@ export interface IpcContract {
   [IpcChannels.trackerGetUnmatchedQuestions]: {
     args: []
     return: UnmatchedQuestionRow[]
+  }
+  [IpcChannels.trackerResolveUnmatchedQuestion]: {
+    args: [id: number, answer: string]
+    return: void
   }
   [IpcChannels.linkedinSavedSearchesList]: {
     args: []

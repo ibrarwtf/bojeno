@@ -160,6 +160,12 @@ export interface SequentialRunSummary {
   failed: number
   /** True when a Stop request ended the walk before every card was processed. */
   cancelled: boolean
+  /** How many of the search's result pages this run actually walked. */
+  pagesScanned: number
+  /** LinkedIn's own total page count for this search, if the pagination
+   *  footer was present at all (a small result set has none) - lets a
+   *  caller tell "walked every page" apart from "stopped partway". */
+  totalPages: number | null
 }
 
 /** One apply-modal question the answer bank couldn't match - queued for review. */

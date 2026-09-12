@@ -3,7 +3,10 @@ import { IpcChannels } from '../channels'
 import { getDb } from '../../db'
 import { getAppliedCountHistory } from '../../db/queries/appliedCounts'
 import { getRecentRunLogs } from '../../db/queries/runLogs'
-import { listUnresolvedUnmatchedQuestions } from '../../db/queries/unmatchedQuestions'
+import {
+  listUnresolvedUnmatchedQuestions,
+  resolveUnmatchedQuestion
+} from '../../db/queries/unmatchedQuestions'
 import { appSessionStartedAt } from '../../appSession'
 
 export function registerTrackerHandlers(): void {
@@ -13,5 +16,9 @@ export function registerTrackerHandlers(): void {
   )
   ipcMain.handle(IpcChannels.trackerGetUnmatchedQuestions, () =>
     listUnresolvedUnmatchedQuestions(getDb())
+  )
+  ipcMain.handle(
+    IpcChannels.trackerResolveUnmatchedQuestion,
+    (_event, id: number, answer: string) => resolveUnmatchedQuestion(getDb(), id, answer)
   )
 }

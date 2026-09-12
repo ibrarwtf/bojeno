@@ -27,7 +27,7 @@ import {
   extractBetween,
   nextHeadingAfter
 } from './jobDetails'
-import { stepThroughEasyApplyModal } from './apply'
+import { stepThroughEasyApplyModal, dismissApplyConfirmation } from './apply'
 import { jobUrlFor } from './adapter'
 
 const SECTION_STOP_MARKERS = ['More jobs', 'See more jobs like this']
@@ -73,14 +73,38 @@ export async function selectJobCard(jobId: string): Promise<void> {
   const card = page.locator(`li[data-occludable-job-id="${jobId}"]`).first()
   await card.scrollIntoViewIfNeeded()
 
-  const link = card.locator('a').first()
-  await link.click({ timeout: 5000 }).catch(() => link.click({ force: true, timeout: 5000 }))
+  const clickCard = async (): Promise<void> => {
+    const link = card.locator('a').first()
+    await link.click({ timeout: 5000 }).catch(() => link.click({ force: true, timeout: 5000 }))
+  }
+  const waitForSelected = (): Promise<boolean> =>
+    page
+      .waitForFunction((id) => window.location.href.includes(`currentJobId=${id}`), jobId, {
+        timeout: 5000
+      })
+      .then(() => true)
+      .catch(() => false)
 
-  await page
-    .waitForFunction((id) => window.location.href.includes(`currentJobId=${id}`), jobId, {
-      timeout: 5000
-    })
-    .catch(() => undefined)
+  await clickCard()
+  let selected = await waitForSelected()
+
+  if (!selected) {
+    // A leftover post-apply confirmation dialog from the previous job can
+    // swallow this click entirely (confirmed live) - the URL never updates
+    // and the pane silently keeps showing the previous job. Dismiss
+    // whatever's left over and retry once before giving up for real.
+    await dismissApplyConfirmation(page)
+    await clickCard()
+    selected = await waitForSelected()
+  }
+
+  if (!selected) {
+    // Don't silently fall through to captureActiveJobDetails with whatever
+    // the pane happens to still be showing - that mislabels this job under
+    // the wrong id, which is worse than a clear failure.
+    throw new Error(`could not select job card ${jobId} in the search-results pane`)
+  }
+
   // The click updates the URL immediately but the pane's own content can
   // lag a beat behind it - same class of gap captureJobDetails already
   // works around by waiting for "About the job" rather than trusting the URL alone.
