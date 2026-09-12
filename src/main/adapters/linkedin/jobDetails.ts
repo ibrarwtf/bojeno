@@ -29,6 +29,13 @@ export function parseApplicantCount(text: string): string | null {
   return match ? match[1] : null
 }
 
+/** The bare number out of parseApplicantCount's result ("Over 100" -> 100), for threshold comparisons. */
+export function parseApplicantCountNumber(count: string | null): number | null {
+  if (!count) return null
+  const match = /(\d+)/.exec(count)
+  return match ? parseInt(match[1], 10) : null
+}
+
 /** "11 hours ago" / "3 days ago" from the job's meta line. */
 export function parsePostedRelative(text: string): string | null {
   const match = /(\d+)\s*(hour|day|week|minute)s?\s*ago/i.exec(text)
@@ -39,6 +46,28 @@ export function parsePostedRelative(text: string): string | null {
 export function parseClickedApplyCount(text: string): string | null {
   const match = /([\d,]+)\s+people (?:clicked apply|applied)/i.exec(text)
   return match ? match[1] : null
+}
+
+/**
+ * The separate "Applicants for this job" premium widget - two numbers, not
+ * one ("352 Applicants" total, "299 Applicants in the past day"), distinct
+ * from both parseApplicantCount's rough top-card figure and the "Candidates
+ * who clicked apply" widget's own total/past-day pair (which use "total" /
+ * "in the past day" as their labels instead of "Applicants"). Callers should
+ * pass just this widget's section text (e.g. via extractBetween on the
+ * "Applicants for this job" heading), not the whole page, since the rough
+ * top-card figure would otherwise be matched first.
+ */
+export function parseApplicantInsightCounts(text: string): {
+  total: number | null
+  pastDay: number | null
+} {
+  const totalMatch = /(\d[\d,]*)\s*Applicants\b(?!\s+in the past day)/i.exec(text)
+  const pastDayMatch = /(\d[\d,]*)\s*Applicants in the past day/i.exec(text)
+  return {
+    total: totalMatch ? parseInt(totalMatch[1].replace(/,/g, ''), 10) : null,
+    pastDay: pastDayMatch ? parseInt(pastDayMatch[1].replace(/,/g, ''), 10) : null
+  }
 }
 
 /**

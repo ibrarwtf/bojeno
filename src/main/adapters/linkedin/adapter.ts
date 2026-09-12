@@ -13,6 +13,7 @@ import { parseAppliedRelativeText, isWithinPast24Hours } from './relativeTime'
 import {
   parseYearsRequired,
   parseApplicantCount,
+  parseApplicantInsightCounts,
   parsePostedRelative,
   parseClickedApplyCount,
   hasFitSignal,
@@ -177,6 +178,12 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
 
   const descriptionStop = nextHeadingAfter(headings, 'About the job')
   const insightsStop = nextHeadingAfter(headings, 'Candidates who clicked apply')
+  const applicantsForJobStop = nextHeadingAfter(headings, 'Applicants for this job')
+  const applicantsForJobSection = extractBetween(
+    text,
+    'Applicants for this job',
+    applicantsForJobStop ? [applicantsForJobStop] : SECTION_STOP_MARKERS
+  )
 
   return {
     jobUrl,
@@ -197,7 +204,10 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
       text,
       'Candidates who clicked apply',
       insightsStop ? [insightsStop] : SECTION_STOP_MARKERS
-    )
+    ),
+    applicantInsightCounts: applicantsForJobSection
+      ? parseApplicantInsightCounts(applicantsForJobSection)
+      : null
   }
 }
 

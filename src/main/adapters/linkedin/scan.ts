@@ -84,10 +84,23 @@ const WORKPLACE_TYPE_VALUES: Record<WorkplaceType, string> = {
  * the "Most recent" sort and real freshness buckets the semantic page
  * doesn't expose.
  */
+/** LinkedIn's own km-per-mile conversion for the "distance" filter, per live walkthrough. */
+const KM_PER_MILE = 1.60934
+
 export function buildSearchUrl(params: SearchUrlParams): string {
   const url = new URL('https://www.linkedin.com/jobs/search/')
   if (params.keywords) url.searchParams.set('keywords', params.keywords)
-  if (params.location) url.searchParams.set('location', params.location)
+  // geoId is what LinkedIn's own autocomplete actually pins to - prefer it
+  // over the free-text location string, which LinkedIn re-resolves itself
+  // and can land on the wrong place.
+  if (params.geoId) {
+    url.searchParams.set('geoId', params.geoId)
+  } else if (params.location) {
+    url.searchParams.set('location', params.location)
+  }
+  if (params.distanceKm) {
+    url.searchParams.set('distance', String(Math.round(params.distanceKm / KM_PER_MILE)))
+  }
   url.searchParams.set('origin', 'CLASSIC_SEARCH_MODE_FROM_SEMANTIC')
   // LinkedIn's own "Most recent" sort option - DD (date descending), vs default R (relevance).
   if (params.sortByRecent) url.searchParams.set('sortBy', 'DD')

@@ -37,9 +37,12 @@ export interface SequentialRunHooks {
   /** Called after a job's JD is captured, before the apply/skip decision. Return a
    *  skip reason to skip the job (e.g. blacklisted company); return undefined to apply. */
   decide: (step: SequentialRunStep, details: JobDetails) => string | undefined
-  onSkipped?: (step: SequentialRunStep, reason: string) => void
-  onApplyResult?: (step: SequentialRunStep, result: ApplyResult) => void
-  onError?: (step: SequentialRunStep, error: unknown) => void
+  /** `details` is only present once JD capture has happened - absent for the
+   *  cheap already-applied/parse-warning skips that happen before it. */
+  onSkipped?: (step: SequentialRunStep, reason: string, details?: JobDetails) => void
+  onApplyResult?: (step: SequentialRunStep, result: ApplyResult, details: JobDetails) => void
+  /** `details` is present unless capture itself is what threw. */
+  onError?: (step: SequentialRunStep, error: unknown, details?: JobDetails) => void
 }
 
 /** Cards not worth capturing/deciding on at all - already applied, or too malformed to trust. */
@@ -70,22 +73,23 @@ export async function runSequentialSearch(
       continue
     }
 
+    let details: JobDetails | undefined
     try {
-      const details = await captureJobDetails(jobUrlFor(card.id))
+      details = await captureJobDetails(jobUrlFor(card.id))
       const skipReason = hooks.decide(step, details)
       if (skipReason) {
         summary.skipped++
-        hooks.onSkipped?.(step, skipReason)
+        hooks.onSkipped?.(step, skipReason, details)
         continue
       }
 
       const result = await applyToJob(card.id, dryRun)
       summary.applied += result.outcome === 'error' ? 0 : 1
       summary.failed += result.outcome === 'error' ? 1 : 0
-      hooks.onApplyResult?.(step, result)
+      hooks.onApplyResult?.(step, result, details)
     } catch (error) {
       summary.failed++
-      hooks.onError?.(step, error)
+      hooks.onError?.(step, error, details)
     }
 
     if (index < cards.length - 1) await paceBetweenJobs()
