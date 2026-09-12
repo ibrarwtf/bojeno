@@ -16,6 +16,7 @@ import unmatchedQuestionsContextSql from './migrations/20260912T0300_unmatched_q
 import savedSearchGeoAndYearsSql from './migrations/20260912T0400_saved_search_geo_and_years.sql?raw'
 import blacklistHiredSql from './migrations/20260912T0500_blacklist_hired.sql?raw'
 import blacklistReasonSql from './migrations/20260912T0600_blacklist_reason.sql?raw'
+import blacklistMoreSpamAgenciesSql from './migrations/20260912T0700_blacklist_more_spam_agencies.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -32,7 +33,11 @@ const migrations: Migration[] = [
   { id: '20260912T0300_unmatched_questions_context.sql', sql: unmatchedQuestionsContextSql },
   { id: '20260912T0400_saved_search_geo_and_years.sql', sql: savedSearchGeoAndYearsSql },
   { id: '20260912T0500_blacklist_hired.sql', sql: blacklistHiredSql },
-  { id: '20260912T0600_blacklist_reason.sql', sql: blacklistReasonSql }
+  { id: '20260912T0600_blacklist_reason.sql', sql: blacklistReasonSql },
+  {
+    id: '20260912T0700_blacklist_more_spam_agencies.sql',
+    sql: blacklistMoreSpamAgenciesSql
+  }
 ]
 
 let db: DatabaseSync | undefined
