@@ -261,11 +261,11 @@ body {
   color: #2da44e;
 }
 
-.log-panel-outcome-dry-run-applied {
+.log-panel-outcome-dryrun {
   color: #2da4c8;
 }
 
-.log-panel-outcome-review-needed,
+.log-panel-outcome-review,
 .log-panel-outcome-skipped {
   color: #9a6700;
 }

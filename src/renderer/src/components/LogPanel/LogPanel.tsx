@@ -26,9 +26,9 @@ function statusWord(row: RunLogRow): string {
     case 'applied':
       return 'applied'
     case 'dry_run_ok':
-      return 'dry-run applied'
+      return 'dryrun'
     case 'needs_review':
-      return 'review needed'
+      return 'review'
     case 'skipped':
       return 'skipped'
     case 'error':
@@ -71,10 +71,8 @@ function describeRow(row: RunLogRow): string {
       skipped: number
       failed: number
     }
-    const appliedLabel = detail.dryRun
-      ? `${s.dryRunApplied} dry-run applied`
-      : `${s.applied} applied`
-    return `${appliedLabel}/${s.total} · ${s.needsReview} needs review · ${s.skipped} skipped · ${s.failed} failed`
+    const appliedLabel = detail.dryRun ? `${s.dryRunApplied} dryrun` : `${s.applied} applied`
+    return `${appliedLabel}/${s.total} · ${s.needsReview} review · ${s.skipped} skipped · ${s.failed} failed`
   }
 
   if (typeof detail.resultReason === 'string') return detail.resultReason
@@ -187,7 +185,10 @@ export function LogPanel(): React.JSX.Element {
             // print that job twice: once unindented and mislabeled as the
             // header, once correctly further down.
             const summaryRow = group.rows.find((r) => !r.entityId)
-            const jobRows = group.rows.filter((r) => r.entityId)
+            // Newest job on top, matching the newest-run-on-top order groups
+            // already have - a run in progress should show what just
+            // happened without scrolling down to the bottom of the group.
+            const jobRows = group.rows.filter((r) => r.entityId).reverse()
 
             return (
               <div key={key} className="log-panel-group">
