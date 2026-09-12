@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { LoginStatus } from '../../../../shared/types'
+import { Badge } from '@renderer/components/ui/badge'
+import { Button } from '@renderer/components/ui/button'
 
 // Placeholder account-level stats until there's a real backend for them (no stats
 // table/IPC exists yet - this is UI scaffolding only, not live data). LinkedIn-specific
@@ -35,39 +37,41 @@ export function AccountHeader(): React.JSX.Element {
   }
 
   return (
-    <div className="linkedin-account-header">
-      <div className="linkedin-account-header-top">
-        <span className="linkedin-account-header-platform">LinkedIn</span>
+    <div className="fixed top-0 right-0 left-[360px] z-10 flex h-11 flex-col border-b border-border">
+      <div className="flex h-11 items-center gap-4 px-4">
+        <span className="font-semibold">LinkedIn</span>
 
         {status === undefined ? (
-          <span className="linkedin-account-header-dim">Status not checked</span>
+          <span className="text-sm text-muted-foreground">Status not checked</span>
         ) : status.loggedIn ? (
-          <span className="linkedin-account-header-dot linkedin-account-header-ok">Logged in</span>
+          <Badge variant="success">Logged in</Badge>
         ) : (
-          <span className="linkedin-account-header-dot linkedin-account-header-warn">
-            Not logged in
-            <button className="linkedin-account-header-link" onClick={logInNow}>
+          <span className="flex items-center gap-2 text-sm">
+            <Badge variant="warning">Not logged in</Badge>
+            <Button variant="link" size="sm" className="h-auto p-0 text-sm" onClick={logInNow}>
               Log in now
-            </button>
+            </Button>
           </span>
         )}
 
-        <div className="linkedin-account-header-stats">
+        <div className="flex items-center gap-4 text-sm">
           {placeholderStats.map((stat) => (
-            <span key={stat.label} className="linkedin-account-header-stat">
-              <span className="linkedin-account-header-stat-value">{stat.value}</span>{' '}
-              <span className="linkedin-account-header-stat-label">{stat.label}</span>
+            <span key={stat.label}>
+              <span className="font-semibold">{stat.value}</span>{' '}
+              <span className="text-muted-foreground">{stat.label}</span>
             </span>
           ))}
         </div>
 
-        <button
-          className="linkedin-account-header-check"
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto"
           onClick={() => void checkStatus()}
           disabled={checking}
         >
           {checking ? 'Checking…' : 'Check'}
-        </button>
+        </Button>
       </div>
     </div>
   )
