@@ -122,5 +122,11 @@ export function buildSearchUrl(params: SearchUrlParams): string {
       params.workplaceTypes.map((type) => WORKPLACE_TYPE_VALUES[type]).join(',')
     )
   }
+  // Company filter - confirmed live (2026-09-12): scopes results to exactly
+  // these companies, works alongside keywords and every other param above,
+  // no practical id-count limit hit.
+  if (params.companyIds?.length) {
+    url.searchParams.set('f_C', params.companyIds.join(','))
+  }
   return url.toString()
 }

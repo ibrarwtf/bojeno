@@ -89,6 +89,16 @@ describe('buildSearchUrl', () => {
     expect(new URL(url).searchParams.get('f_AL')).toBe('true')
   })
 
+  it('sets f_C to a comma-joined id list when companyIds is given - confirmed live 2026-09-12: scopes results to exactly those companies', () => {
+    const url = buildSearchUrl({ companyIds: ['19205405', '903031'] })
+    expect(new URL(url).searchParams.get('f_C')).toBe('19205405,903031')
+  })
+
+  it('omits f_C when companyIds is empty or not given', () => {
+    expect(new URL(buildSearchUrl({})).searchParams.has('f_C')).toBe(false)
+    expect(new URL(buildSearchUrl({ companyIds: [] })).searchParams.has('f_C')).toBe(false)
+  })
+
   it('omits f_AL when easyApplyOnly is not given', () => {
     const url = buildSearchUrl({})
     expect(new URL(url).searchParams.has('f_AL')).toBe(false)

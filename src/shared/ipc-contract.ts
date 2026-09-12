@@ -21,6 +21,7 @@ export const IpcChannels = {
   linkedinFetchRecentAppliedJobs: 'linkedin:fetchRecentAppliedJobs',
   linkedinCaptureJobDetails: 'linkedin:captureJobDetails',
   linkedinScanJobs: 'linkedin:scanJobs',
+  linkedinResolveCompanyId: 'linkedin:resolveCompanyId',
   linkedinApplyToJob: 'linkedin:applyToJob',
   linkedinRunSequentialSearch: 'linkedin:runSequentialSearch',
   linkedinCancelRun: 'linkedin:cancelRun',
@@ -73,6 +74,10 @@ export interface IpcContract {
   [IpcChannels.linkedinCheckLogin]: {
     args: []
     return: LoginStatus
+  }
+  [IpcChannels.linkedinResolveCompanyId]: {
+    args: [name: string]
+    return: string | null
   }
   [IpcChannels.linkedinFetchAppliedCount]: {
     args: []

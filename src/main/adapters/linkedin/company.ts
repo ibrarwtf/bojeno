@@ -178,3 +178,74 @@ export async function fetchCompanyAboutInfo(
     remark: null
   }
 }
+
+export interface ResolvedCompany {
+  linkedinCompanyId: string
+  name: string
+  url: string
+}
+
+/**
+ * Resolves a company's LinkedIn numeric id + page URL from just its name -
+ * ported from afterq/tools/find-company-id.mjs's search-then-resolve flow
+ * (search -> first company result -> read the id off that page's own html).
+ * Callers should check the `companies` table for an already-known id first
+ * (see ipc/handlers/linkedin.ts's resolveCompanyId, which does exactly
+ * that) - this is the live-search fallback for a company bojeno hasn't
+ * seen before, not the primary path.
+ */
+export async function searchCompanyByName(
+  page: Page,
+  name: string
+): Promise<ResolvedCompany | null> {
+  await gotoWithRetry(
+    page,
+    `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(name)}`,
+    { waitUntil: 'domcontentloaded' }
+  )
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+
+  // The result card's own `a[href="/company/<slug>/"]` appears twice
+  // (confirmed live) - an outer anchor wrapping the whole card (badges,
+  // follower count, "N jobs" text and all, via nested elements) and an
+  // inner one wrapping only the plain company name. Both match the href
+  // filter and querySelectorAll returns the outer one first (document
+  // order = parent before child), so naively taking the first match's
+  // textContent pulls in the entire card's text as the "name". Instead:
+  // take the first href seen (that's still the right company, first
+  // result), then among every anchor sharing that exact href pick the one
+  // with the shortest non-empty text - that's the name-only anchor, never
+  // the wrapping one.
+  const firstResult = await page
+    .evaluate(() => {
+      const links = Array.from(
+        document.querySelectorAll<HTMLAnchorElement>('a[href*="/company/"]')
+      ).filter((a) => /\/company\/[^/?]+/.test(a.getAttribute('href') ?? ''))
+      if (!links.length) return null
+
+      const firstHref = (links[0].getAttribute('href') ?? '').split('?')[0]
+      const sameCard = links.filter(
+        (a) => (a.getAttribute('href') ?? '').split('?')[0] === firstHref
+      )
+      const nameLink = sameCard
+        .map((a) => a.textContent?.trim() ?? '')
+        .filter((text) => text.length > 0)
+        .sort((a, b) => a.length - b.length)[0]
+
+      return { href: firstHref, name: nameLink ?? '' }
+    })
+    .catch(() => null)
+  if (!firstResult) return null
+
+  const companyUrl = firstResult.href.startsWith('http')
+    ? firstResult.href
+    : `https://www.linkedin.com${firstResult.href}`
+
+  await gotoWithRetry(page, companyUrl, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+  const html = await page.content()
+  const linkedinCompanyId = extractCompanyIdFromHtml(html)
+  if (!linkedinCompanyId) return null
+
+  return { linkedinCompanyId, name: firstResult.name || name, url: companyUrl }
+}
