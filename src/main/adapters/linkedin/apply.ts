@@ -32,20 +32,36 @@ function cssEscapeId(id: string): string {
   return id.replace(/([^\w-])/g, '\\$1')
 }
 
+/** A throwaway value that satisfies most text/number field validation -
+ *  never submitted, since any unmatched question stops this pass short of
+ *  the real Submit click. Only used to keep the modal walkable so later
+ *  questions on this step/later steps still get discovered and captured. */
+const PLACEHOLDER_TEXT_VALUE = '1'
+
+interface UnmatchedQuestion {
+  kind: 'text' | 'select' | 'radio'
+  label: string
+}
+
 interface FillResult {
+  /** True the moment a photo/file upload blocks the whole step - nothing
+   *  else on the step is inspected, since there's no way to proceed at all. */
   blocked: boolean
   reason?: string
-  /** Set only for the three "we don't recognize this question at all" cases
-   *  below - not for a fill/verify failure on a question we did match. */
-  unmatchedQuestion?: { kind: 'text' | 'select' | 'radio'; label: string }
+  /** Every field on this step that had no real answer - filled with
+   *  PLACEHOLDER_TEXT_VALUE (or an arbitrary option) instead of stopping,
+   *  so the walk can keep discovering later questions on this step and
+   *  beyond. Empty when every field was genuinely answered. */
+  unmatchedQuestions: UnmatchedQuestion[]
 }
 
 /**
- * Answers every recognizable field on the current modal step. Returns
- * {blocked:false} if the step is fully handled (or had nothing to fill -
- * e.g. contact info already prefilled by LinkedIn), or {blocked:true,
- * reason} the moment a required field has no matching rule. Never guesses
- * past that point.
+ * Answers every recognizable field on the current modal step, in "capture
+ * mode": a field with no real answer is never a hard stop - it's filled
+ * with a throwaway placeholder (so the step can still be left, and later
+ * questions on this step or subsequent ones are still discovered) and
+ * recorded in `unmatchedQuestions` for review. The one true hard stop is a
+ * required file/photo upload, which isn't automatable at all.
  */
 export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promise<FillResult> {
   // Photo/file-upload requirements aren't automatable at all. Not scoped
@@ -57,9 +73,15 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
   if (fileInputs) {
     const stepText = await modal.innerText().catch(() => '')
     if (!/\.(pdf|docx?|jpe?g|png|gif)\b/i.test(stepText)) {
-      return { blocked: true, reason: 'requires a file/photo upload - not automatable' }
+      return {
+        blocked: true,
+        reason: 'requires a file/photo upload - not automatable',
+        unmatchedQuestions: []
+      }
     }
   }
+
+  const unmatchedQuestions: UnmatchedQuestion[] = []
 
   const textInputs = await modal.locator('input[type="text"], input[type="number"], textarea').all()
   for (const inp of textInputs) {
@@ -75,19 +97,16 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
     if (!label) continue
 
     const rule = matchRule(rules, label)
-    if (!rule) {
-      return {
-        blocked: true,
-        reason: `unmatched question (text): "${label}"`,
-        unmatchedQuestion: { kind: 'text', label }
-      }
-    }
+    // A matched rule with a blank answer-bank value (e.g. llm_agent_experience
+    // left empty) is just as much "no real answer" as no rule at all - both
+    // fall back to the placeholder and both get flagged below.
+    const hasRealAnswer = Boolean(rule?.value)
 
     // Typeahead fields (e.g. "Location (city)") are role=combobox.
     const isTypeahead = (await inp.getAttribute('role').catch(() => null)) === 'combobox'
 
     await pace()
-    await inp.fill(rule.value ?? '')
+    await inp.fill(rule?.value || PLACEHOLDER_TEXT_VALUE)
 
     if (isTypeahead) {
       // Opens a suggestion dropdown that sits on top of the Next/Review
@@ -105,7 +124,7 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
     }
 
     const after = await inp.inputValue().catch(() => '')
-    if (!after) return { blocked: true, reason: `fill didn't verify for "${label}"` }
+    if (!hasRealAnswer || !after) unmatchedQuestions.push({ kind: 'text', label })
   }
 
   const selects = await modal.locator('select').all()
@@ -141,20 +160,16 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
       if (noticeRule) choice = pickNoticeOption(optionTexts, noticeRule.days ?? 0)
     }
     if (!choice) choice = yesNoOptionMatch(optionTexts, true)
-    if (!choice) {
-      return {
-        blocked: true,
-        reason: `unmatched question (select): "${label}"`,
-        unmatchedQuestion: { kind: 'select', label }
-      }
-    }
+    const matched = Boolean(choice)
+    // Nothing matched at all - pick the first real (non-placeholder) option
+    // purely to keep walking forward; still recorded below as unmatched.
+    if (!choice) choice = optionTexts.find((_, i) => optionTexts[i] !== optionTexts[0])
 
     await pace()
-    await sel.selectOption({ label: choice }).catch(() => {})
+    if (choice) await sel.selectOption({ label: choice }).catch(() => {})
     const after = await sel.inputValue().catch(() => '')
-    if (after === firstOptionValue || after === '') {
-      return { blocked: true, reason: `select didn't verify for "${label}"` }
-    }
+    const verified = choice && after !== firstOptionValue && after !== ''
+    if (!verified || !matched) unmatchedQuestions.push({ kind: 'select', label })
   }
 
   // Radio groups: fieldset+legend is the common pattern.
@@ -192,14 +207,15 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
     const rule = matchRule(rules, legend)
     let wantText = rule && pickOptionByRule(optionLabels, rule)
     if (!wantText) wantText = yesNoOptionMatch(optionLabels, true)
+    const matched = Boolean(wantText)
+    // Nothing matched at all - fall back to the first real option purely to
+    // keep walking forward; still recorded below as unmatched.
+    if (!wantText) wantText = optionLabels[0]
     const idx = wantText ? optionLabels.indexOf(wantText) : -1
+    const label = legend || '(no legend)'
     if (idx === -1) {
-      const label = legend || '(no legend)'
-      return {
-        blocked: true,
-        reason: `unmatched question (radio): "${label}"`,
-        unmatchedQuestion: { kind: 'radio', label }
-      }
+      unmatchedQuestions.push({ kind: 'radio', label })
+      continue
     }
 
     // Click the <label>, not .check() on the <input> - these radios are
@@ -209,10 +225,10 @@ export async function answerVisibleFields(modal: Locator, rules: Rule[]): Promis
     const clickTarget = optionLabelLocators[idx] ?? radios[idx]
     await clickTarget.click({ force: true }).catch(() => {})
     const nowChecked = await radios[idx].isChecked().catch(() => false)
-    if (!nowChecked) return { blocked: true, reason: `radio didn't verify for "${legend}"` }
+    if (!nowChecked || !matched) unmatchedQuestions.push({ kind: 'radio', label })
   }
 
-  return { blocked: false }
+  return { blocked: false, unmatchedQuestions }
 }
 
 export async function discardModal(page: Page, modal: Locator): Promise<void> {
@@ -255,19 +271,37 @@ export async function stepThroughModal(
       .catch(() => '')) ?? ''
   ).trim()
 
+  // Every field across every step that had no real answer - a field never
+  // stops the walk on its own (see answerVisibleFields), it's just filled
+  // with a placeholder and recorded here so later questions on this step
+  // and subsequent ones still get discovered. Non-empty at the end means
+  // this pass never actually submits, dry run or not - see the Submit
+  // handling below.
+  const collected: UnmatchedQuestion[] = []
+  const collectUnmatched = (found: UnmatchedQuestion[]): void => {
+    for (const q of found) {
+      if (!collected.some((c) => c.kind === q.kind && c.label === q.label)) collected.push(q)
+    }
+  }
+
+  const stuck = async (reason: string): Promise<ApplyResult> => {
+    await discardModal(page, modal)
+    return {
+      outcome: 'needs_review',
+      reason,
+      header,
+      unmatchedQuestions: collected.length ? collected : undefined
+    }
+  }
+
   for (let step = 0; step < MAX_STEPS; step++) {
     await sleep(500)
 
     const fillRes = await answerVisibleFields(modal, rules)
-    if (fillRes.blocked) {
-      await discardModal(page, modal)
-      return {
-        outcome: 'needs_review',
-        reason: fillRes.reason,
-        header,
-        unmatchedQuestion: fillRes.unmatchedQuestion
-      }
-    }
+    collectUnmatched(fillRes.unmatchedQuestions)
+    // The one true hard stop: a required file/photo upload isn't
+    // automatable at all, so there's nothing left to try on this step.
+    if (fillRes.blocked) return stuck(fillRes.reason ?? 'blocked')
     await pace()
 
     // A typeahead field answered earlier can leave its suggestion dropdown
@@ -292,6 +326,11 @@ export async function stepThroughModal(
     // getByRole name-matching misses them - match visible text instead.
     const submitBtn = modal.locator('button:has-text("Submit application")')
     if (await submitBtn.count()) {
+      // Reached the end with at least one question we couldn't really
+      // answer along the way - never actually submit on placeholder values,
+      // dry run or not. Everything collected is what's worth reviewing.
+      if (collected.length)
+        return stuck('reached submit, but had unmatched questions along the way')
       if (dryRun) {
         await discardModal(page, modal)
         return { outcome: 'dry_run_ok', header }
@@ -308,55 +347,45 @@ export async function stepThroughModal(
         }
       }
       await sleep(2500)
-      const stillOpen = await modal.count()
+      // Checking modal.count() here is wrong: LinkedIn commonly replaces the
+      // apply modal with its own "Application sent" confirmation dialog on
+      // success, which is still a div[role="dialog"] and made a real apply
+      // read back as 'error' ("modal still open"). The Submit button itself
+      // is the reliable signal - it's gone in both success paths (modal
+      // closed outright, or replaced by the confirmation) and only remains
+      // if the submit genuinely never went through.
+      const submitStillThere = await submitBtn.count().catch(() => 0)
       return {
-        outcome: stillOpen ? 'error' : 'applied',
+        outcome: submitStillThere ? 'error' : 'applied',
         header,
-        reason: stillOpen ? 'modal still open after submit click' : undefined
+        reason: submitStillThere ? 'modal still open after submit click' : undefined
       }
     }
 
     const nextBtn = modal.locator('button:has-text("Review"), button:has-text("Next")').last()
     if (!(await nextBtn.count())) {
-      await discardModal(page, modal)
-      return { outcome: 'needs_review', reason: 'no next/review/submit control found', header }
+      return stuck('no next/review/submit control found')
     }
     if (await nextBtn.isDisabled().catch(() => true)) {
-      await discardModal(page, modal)
-      return {
-        outcome: 'needs_review',
-        reason: 'primary button disabled (unanswered required field)',
-        header
-      }
+      return stuck('primary button disabled (unanswered required field)')
     }
     const before = await modal.innerText().catch(() => '')
     await pace()
     try {
       await nextBtn.click({ timeout: 8000 })
     } catch {
-      await discardModal(page, modal)
-      return {
-        outcome: 'needs_review',
-        reason: 'Next/Review click was blocked by an overlay',
-        header
-      }
+      return stuck('Next/Review click was blocked by an overlay')
     }
     await sleep(700)
     const after = await modal.innerText().catch(() => '')
     if (after === before) {
       // Click didn't advance - LinkedIn's own validation rejected
       // something our fill pass thought was fine. Don't spin on it.
-      await discardModal(page, modal)
-      return {
-        outcome: 'needs_review',
-        reason: 'step did not advance after clicking Next/Review (unrecognized required field?)',
-        header
-      }
+      return stuck('step did not advance after clicking Next/Review (unrecognized required field?)')
     }
   }
 
-  await discardModal(page, modal)
-  return { outcome: 'needs_review', reason: 'exceeded max steps', header }
+  return stuck('exceeded max steps')
 }
 
 /**

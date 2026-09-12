@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
 import { IpcChannels } from '../channels'
 import type {
@@ -68,7 +67,15 @@ function decideSkip(
   return evaluateApplicantPreference(details, preferences)
 }
 
-/** Records a question the answer bank couldn't match, for later review - not every 'needs_review' has one. */
+/**
+ * Runs currently in flight, keyed by the caller-supplied runId - lets the
+ * Stop button (linkedin:cancelRun) reach a run that's still executing,
+ * since the run's own IPC call doesn't resolve until it finishes. A run
+ * removes its own entry when it's done, cancelled or not.
+ */
+const activeRuns = new Map<string, { cancelled: boolean }>()
+
+/** Records every question the answer bank couldn't match, for later review - not every 'needs_review' has any. */
 function recordUnmatchedQuestionIfAny(
   db: DatabaseSync,
   jobId: string,
@@ -76,17 +83,18 @@ function recordUnmatchedQuestionIfAny(
   result: ApplyResult,
   runId?: string
 ): void {
-  if (!result.unmatchedQuestion) return
-  insertUnmatchedQuestion(db, {
-    platform: 'linkedin',
-    externalJobId: jobId,
-    jobUrl: jobUrlFor(jobId),
-    jobTitle: details.title,
-    company: details.company,
-    questionKind: result.unmatchedQuestion.kind,
-    questionLabel: result.unmatchedQuestion.label,
-    runId
-  })
+  for (const question of result.unmatchedQuestions ?? []) {
+    insertUnmatchedQuestion(db, {
+      platform: 'linkedin',
+      externalJobId: jobId,
+      jobUrl: jobUrlFor(jobId),
+      jobTitle: details.title,
+      company: details.company,
+      questionKind: question.kind,
+      questionLabel: question.label,
+      runId
+    })
+  }
 }
 
 export function registerLinkedinHandlers(): void {
@@ -324,16 +332,16 @@ export function registerLinkedinHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.linkedinRunSequentialSearch,
-    (_event, { params, dryRun }: RunSequentialSearchArgs, mode: RunMode = 'live') =>
+    (_event, { runId, params, dryRun }: RunSequentialSearchArgs, mode: RunMode = 'live') =>
       withLock('linkedin', async () => {
         ensurePlatformViewLoaded('linkedin')
         const db = getDb()
         const script = 'linkedin:runSequentialSearch'
         const startedAt = Date.now()
-        // One id per whole search run, so every row it produces - the
-        // discovery summary and each per-job row - can be grouped back
-        // together later instead of only being orderable by timestamp.
-        const runId = randomUUID()
+        // runId comes from the caller (not generated here) so it's known
+        // before the run starts - the only way a Stop button can target a
+        // run that's still executing.
+        activeRuns.set(runId, { cancelled: false })
 
         const loginStatus = await checkLogin()
         if (!loginStatus.loggedIn) {
@@ -346,7 +354,16 @@ export function registerLinkedinHandlers(): void {
             duration: Date.now() - startedAt,
             detail: { params }
           })
-          return { total: 0, applied: 0, dryRunApplied: 0, needsReview: 0, skipped: 0, failed: 0 }
+          activeRuns.delete(runId)
+          return {
+            total: 0,
+            applied: 0,
+            dryRunApplied: 0,
+            needsReview: 0,
+            skipped: 0,
+            failed: 0,
+            cancelled: false
+          }
         }
 
         const effectiveDryRun = mode === 'live' ? dryRun : true
@@ -354,6 +371,7 @@ export function registerLinkedinHandlers(): void {
         const titleFilter = buildTitleFilter(preferences.titleFilter)
 
         const summary = await runSequentialSearch(params, effectiveDryRun, {
+          isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
           // Cheap card-level check, before selectJobCard/JD capture ever
           // happens - see titleFilter.ts. Skips a card whose title doesn't
           // pass the user's own positive/negative keyword config.
@@ -446,9 +464,15 @@ export function registerLinkedinHandlers(): void {
           duration: Date.now() - startedAt,
           detail: { params, dryRun: effectiveDryRun, summary }
         })
+        activeRuns.delete(runId)
         return summary
       })
   )
+
+  ipcMain.handle(IpcChannels.linkedinCancelRun, (_event, runId: string) => {
+    const run = activeRuns.get(runId)
+    if (run) run.cancelled = true
+  })
 
   ipcMain.handle(IpcChannels.linkedinSavedSearchesList, () => listSavedSearches(getDb()))
   ipcMain.handle(IpcChannels.linkedinSavedSearchesCreate, (_event, args: CreateSavedSearchArgs) =>

@@ -61,6 +61,8 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
   runSequentialSearch: (args: RunSequentialSearchArgs): Promise<SequentialRunSummary> =>
     ipcRenderer.invoke(IpcChannels.linkedinRunSequentialSearch, args),
+  cancelRun: (runId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.linkedinCancelRun, runId),
   getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
   getUnmatchedQuestions: (): Promise<UnmatchedQuestionRow[]> =>
     ipcRenderer.invoke(IpcChannels.trackerGetUnmatchedQuestions),
