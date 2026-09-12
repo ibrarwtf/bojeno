@@ -355,143 +355,167 @@ export function registerLinkedinHandlers(): void {
       _event,
       { runId, params, dryRun, savedSearchName }: RunSequentialSearchArgs,
       mode: RunMode = 'live'
-    ) =>
-      withLock('linkedin', async () => {
-        ensurePlatformViewLoaded('linkedin')
-        const db = getDb()
-        const script = 'linkedin:runSequentialSearch'
-        const startedAt = Date.now()
-        // runId comes from the caller (not generated here) so it's known
-        // before the run starts - the only way a Stop button can target a
-        // run that's still executing.
-        activeRuns.set(runId, { cancelled: false })
+    ) => {
+      // Rejected synchronously, before this call ever reaches withLock's
+      // navigation queue - withLock only serializes navigation, so without
+      // this check a second run would silently queue behind the first and
+      // start on its own once the first's whole body resolved, instead of
+      // being refused. activeRuns is only ever populated by this handler,
+      // so any entry present means a LinkedIn run is already in flight -
+      // "per platform" and "any" coincide today because there's only one
+      // saved search; real queueing across multiple saved searches is
+      // explicitly out of scope until a second one exists (see
+      // SavedSearches.tsx).
+      if (activeRuns.size > 0) {
+        throw new Error('A LinkedIn search run is already in progress')
+      }
+      // Set eagerly (before withLock, not inside it) so this check-then-set
+      // is synchronous from the caller's point of view - Electron dispatches
+      // one IPC message at a time, so two rapid calls can't interleave here.
+      // runId comes from the caller (not generated here) so it's known
+      // before the run starts - the only way a Stop button can target a
+      // run that's still executing.
+      activeRuns.set(runId, { cancelled: false })
 
-        const loginStatus = await ensureLoggedIn()
-        if (!loginStatus.loggedIn) {
+      return withLock('linkedin', async () => {
+        try {
+          ensurePlatformViewLoaded('linkedin')
+          const db = getDb()
+          const script = 'linkedin:runSequentialSearch'
+          const startedAt = Date.now()
+
+          const loginStatus = await ensureLoggedIn()
+          if (!loginStatus.loggedIn) {
+            insertRunLog(db, {
+              runId,
+              script,
+              outcome: 'auth_required',
+              triggerType: 'manual',
+              runMode: mode,
+              duration: Date.now() - startedAt,
+              detail: { params }
+            })
+            return {
+              total: 0,
+              applied: 0,
+              dryRunApplied: 0,
+              needsReview: 0,
+              skipped: 0,
+              failed: 0,
+              cancelled: false,
+              pagesScanned: 0,
+              totalPages: null
+            }
+          }
+
+          const effectiveDryRun = mode === 'live' ? dryRun : true
+          const preferences = loadPreferences()
+          const titleFilter = buildTitleFilter(preferences.titleFilter)
+
+          const summary = await runSequentialSearch(params, effectiveDryRun, {
+            isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
+            // Cheap card-level check, before selectJobCard/JD capture ever
+            // happens - see titleFilter.ts. Skips a card whose title doesn't
+            // pass the user's own positive/negative keyword config.
+            filterCard: (card) =>
+              titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
+            // Same gate applyToJob's own handler uses - checked here too since this
+            // walk decides per-job whether to apply at all, applyToJob never sees a
+            // blacklisted or over-preference job. Also where the JD capture gets
+            // persisted - decide() is called exactly once per job, right after capture.
+            decide: (step, details) => {
+              insertJobSnapshot(
+                db,
+                { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
+                details
+              )
+              return decideSkip(db, details, preferences)
+            },
+            onSkipped: (step, reason, details) =>
+              insertRunLog(db, {
+                runId,
+                script: `${script}:job`,
+                outcome: 'skipped',
+                triggerType: 'manual',
+                runMode: mode,
+                entityType: 'job',
+                entityId: step.card.id,
+                jobTitle: details?.title ?? step.card.title,
+                company: details?.company ?? step.card.company,
+                location: step.card.location,
+                detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
+              }),
+            onApplyResult: (step, result, details) => {
+              const attemptedAt = new Date().toISOString()
+              if (mode !== 'read-only') {
+                insertApplyAttempt(db, {
+                  platform: 'linkedin',
+                  externalJobId: step.card.id,
+                  outcome: result.outcome,
+                  reason: result.reason,
+                  header: result.header,
+                  dryRun: effectiveDryRun,
+                  attemptedAt
+                })
+              }
+              recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
+              insertRunLog(db, {
+                runId,
+                script: `${script}:job`,
+                outcome: result.outcome === 'error' ? 'failed' : 'success',
+                triggerType: 'manual',
+                runMode: mode,
+                entityType: 'job',
+                entityId: step.card.id,
+                jobTitle: details.title,
+                company: details.company,
+                location: step.card.location,
+                detail: {
+                  resultOutcome: result.outcome,
+                  resultReason: result.reason,
+                  dryRun: effectiveDryRun,
+                  ...parsedSignalDetail(details)
+                }
+              })
+            },
+            onError: (step, error, details) =>
+              insertRunLog(db, {
+                runId,
+                script: `${script}:job`,
+                outcome: 'failed',
+                triggerType: 'manual',
+                runMode: mode,
+                entityType: 'job',
+                entityId: step.card.id,
+                jobTitle: details?.title ?? step.card.title,
+                company: details?.company ?? step.card.company,
+                location: step.card.location,
+                detail: {
+                  message: error instanceof Error ? error.message : error,
+                  ...(details ? parsedSignalDetail(details) : {})
+                }
+              })
+          })
+
           insertRunLog(db, {
             runId,
             script,
-            outcome: 'auth_required',
+            outcome: 'success',
             triggerType: 'manual',
             runMode: mode,
             duration: Date.now() - startedAt,
-            detail: { params }
+            detail: { params, dryRun: effectiveDryRun, summary, savedSearchName }
           })
+          return summary
+        } finally {
+          // Guarantees cleanup on every exit path - including a thrown
+          // error - not just the two explicit returns above. Without this,
+          // an error partway through a run would leave activeRuns
+          // permanently non-empty and lock out every future run.
           activeRuns.delete(runId)
-          return {
-            total: 0,
-            applied: 0,
-            dryRunApplied: 0,
-            needsReview: 0,
-            skipped: 0,
-            failed: 0,
-            cancelled: false,
-            pagesScanned: 0,
-            totalPages: null
-          }
         }
-
-        const effectiveDryRun = mode === 'live' ? dryRun : true
-        const preferences = loadPreferences()
-        const titleFilter = buildTitleFilter(preferences.titleFilter)
-
-        const summary = await runSequentialSearch(params, effectiveDryRun, {
-          isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
-          // Cheap card-level check, before selectJobCard/JD capture ever
-          // happens - see titleFilter.ts. Skips a card whose title doesn't
-          // pass the user's own positive/negative keyword config.
-          filterCard: (card) =>
-            titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
-          // Same gate applyToJob's own handler uses - checked here too since this
-          // walk decides per-job whether to apply at all, applyToJob never sees a
-          // blacklisted or over-preference job. Also where the JD capture gets
-          // persisted - decide() is called exactly once per job, right after capture.
-          decide: (step, details) => {
-            insertJobSnapshot(
-              db,
-              { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
-              details
-            )
-            return decideSkip(db, details, preferences)
-          },
-          onSkipped: (step, reason, details) =>
-            insertRunLog(db, {
-              runId,
-              script: `${script}:job`,
-              outcome: 'skipped',
-              triggerType: 'manual',
-              runMode: mode,
-              entityType: 'job',
-              entityId: step.card.id,
-              jobTitle: details?.title ?? step.card.title,
-              company: details?.company ?? step.card.company,
-              location: step.card.location,
-              detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
-            }),
-          onApplyResult: (step, result, details) => {
-            const attemptedAt = new Date().toISOString()
-            if (mode !== 'read-only') {
-              insertApplyAttempt(db, {
-                platform: 'linkedin',
-                externalJobId: step.card.id,
-                outcome: result.outcome,
-                reason: result.reason,
-                header: result.header,
-                dryRun: effectiveDryRun,
-                attemptedAt
-              })
-            }
-            recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
-            insertRunLog(db, {
-              runId,
-              script: `${script}:job`,
-              outcome: result.outcome === 'error' ? 'failed' : 'success',
-              triggerType: 'manual',
-              runMode: mode,
-              entityType: 'job',
-              entityId: step.card.id,
-              jobTitle: details.title,
-              company: details.company,
-              location: step.card.location,
-              detail: {
-                resultOutcome: result.outcome,
-                resultReason: result.reason,
-                dryRun: effectiveDryRun,
-                ...parsedSignalDetail(details)
-              }
-            })
-          },
-          onError: (step, error, details) =>
-            insertRunLog(db, {
-              runId,
-              script: `${script}:job`,
-              outcome: 'failed',
-              triggerType: 'manual',
-              runMode: mode,
-              entityType: 'job',
-              entityId: step.card.id,
-              jobTitle: details?.title ?? step.card.title,
-              company: details?.company ?? step.card.company,
-              location: step.card.location,
-              detail: {
-                message: error instanceof Error ? error.message : error,
-                ...(details ? parsedSignalDetail(details) : {})
-              }
-            })
-        })
-
-        insertRunLog(db, {
-          runId,
-          script,
-          outcome: 'success',
-          triggerType: 'manual',
-          runMode: mode,
-          duration: Date.now() - startedAt,
-          detail: { params, dryRun: effectiveDryRun, summary, savedSearchName }
-        })
-        activeRuns.delete(runId)
-        return summary
       })
+    }
   )
 
   ipcMain.handle(IpcChannels.linkedinCancelRun, (_event, runId: string) => {

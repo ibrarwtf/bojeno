@@ -58,13 +58,12 @@ export function SavedSearches({
     await refresh()
   }
 
-  // TODO: only one saved search should be able to run at a time per platform
-  // (withLock('linkedin', ...) already serializes navigation at the IPC
-  // handler level, but there's nothing here yet stopping a second search
-  // from being kicked off while one is running and just queuing/blocking it
-  // cleanly). No need for anything fancier than a simple lock - build this
-  // when a second saved search actually exists, not before; there's only
-  // ever been one so far.
+  // The main-process handler rejects outright if a run is already active for
+  // the platform (see linkedinRunSequentialSearch in
+  // src/main/ipc/handlers/linkedin.ts) rather than queueing - there's only
+  // ever been one saved search, so there's nothing to queue behind yet.
+  // Caught here just so that rejection surfaces as a log line instead of an
+  // unhandled promise rejection; no new UI state for it.
   async function run(search: LinkedinSavedSearch): Promise<void> {
     const runId = crypto.randomUUID()
     setRunningId(search.id)
@@ -85,6 +84,8 @@ export function SavedSearches({
       })
       await window.bojeno.touchSavedSearchLastRun(search.id)
       await refresh()
+    } catch (error) {
+      console.error('runSequentialSearch failed', error)
     } finally {
       setRunningId(undefined)
       setActiveRunId(undefined)
