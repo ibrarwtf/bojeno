@@ -9,7 +9,9 @@ import type {
   LoginStatus,
   Platform,
   RunLogRow,
-  ScannedJobCard
+  ScannedJobCard,
+  SearchUrlParams,
+  SequentialRunSummary
 } from './types'
 
 export const IpcChannels = {
@@ -19,6 +21,7 @@ export const IpcChannels = {
   linkedinCaptureJobDetails: 'linkedin:captureJobDetails',
   linkedinScanJobs: 'linkedin:scanJobs',
   linkedinApplyToJob: 'linkedin:applyToJob',
+  linkedinRunSequentialSearch: 'linkedin:runSequentialSearch',
   linkedinSavedSearchesList: 'linkedin:savedSearches:list',
   linkedinSavedSearchesCreate: 'linkedin:savedSearches:create',
   linkedinSavedSearchesDelete: 'linkedin:savedSearches:delete',
@@ -38,11 +41,11 @@ export interface ActivateTabArgs {
   navigateToLogin?: boolean
 }
 
-export interface ScanJobsArgs {
-  keywords?: string
-  location?: string
-  sortByRecent?: boolean
-  easyApplyOnly?: boolean
+export type ScanJobsArgs = SearchUrlParams
+
+export interface RunSequentialSearchArgs {
+  params: SearchUrlParams
+  dryRun: boolean
 }
 
 export interface CreateSavedSearchArgs {
@@ -97,6 +100,10 @@ export interface IpcContract {
   [IpcChannels.linkedinApplyToJob]: {
     args: [string, boolean]
     return: ApplyResult
+  }
+  [IpcChannels.linkedinRunSequentialSearch]: {
+    args: [RunSequentialSearchArgs]
+    return: SequentialRunSummary
   }
   [IpcChannels.trackerGetRunLogs]: {
     args: []

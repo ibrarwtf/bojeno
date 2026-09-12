@@ -93,4 +93,39 @@ describe('buildSearchUrl', () => {
     const url = buildSearchUrl({})
     expect(new URL(url).searchParams.has('f_AL')).toBe(false)
   })
+
+  it('sets f_TPR from datePosted', () => {
+    expect(new URL(buildSearchUrl({ datePosted: 'past24Hours' })).searchParams.get('f_TPR')).toBe(
+      'r86400'
+    )
+    expect(new URL(buildSearchUrl({ datePosted: 'pastWeek' })).searchParams.get('f_TPR')).toBe(
+      'r604800'
+    )
+    expect(new URL(buildSearchUrl({ datePosted: 'pastMonth' })).searchParams.get('f_TPR')).toBe(
+      'r2592000'
+    )
+  })
+
+  it('joins multiple experience levels into a comma-separated f_E', () => {
+    const url = buildSearchUrl({ experienceLevels: ['midSenior', 'director'] })
+    expect(new URL(url).searchParams.get('f_E')).toBe('4,5')
+  })
+
+  it('joins multiple job types into a comma-separated f_JT', () => {
+    const url = buildSearchUrl({ jobTypes: ['fullTime', 'contract'] })
+    expect(new URL(url).searchParams.get('f_JT')).toBe('F,C')
+  })
+
+  it('joins multiple workplace types into a comma-separated f_WT', () => {
+    const url = buildSearchUrl({ workplaceTypes: ['remote', 'hybrid'] })
+    expect(new URL(url).searchParams.get('f_WT')).toBe('2,3')
+  })
+
+  it('omits f_TPR/f_E/f_JT/f_WT when not given', () => {
+    const params = new URL(buildSearchUrl({})).searchParams
+    expect(params.has('f_TPR')).toBe(false)
+    expect(params.has('f_E')).toBe(false)
+    expect(params.has('f_JT')).toBe(false)
+    expect(params.has('f_WT')).toBe(false)
+  })
 })

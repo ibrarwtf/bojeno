@@ -4,6 +4,7 @@ import {
   IpcChannels,
   type ActivateTabArgs,
   type CreateSavedSearchArgs,
+  type RunSequentialSearchArgs,
   type ScanJobsArgs
 } from '../shared/ipc-contract'
 import type {
@@ -17,7 +18,8 @@ import type {
   LoginStatus,
   Platform,
   RunLogRow,
-  ScannedJobCard
+  ScannedJobCard,
+  SequentialRunSummary
 } from '../shared/types'
 
 const bojenoApi = {
@@ -56,6 +58,8 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.linkedinScanJobs, params),
   applyToJob: (jobId: string, dryRun = true): Promise<ApplyResult> =>
     ipcRenderer.invoke(IpcChannels.linkedinApplyToJob, jobId, dryRun),
+  runSequentialSearch: (args: RunSequentialSearchArgs): Promise<SequentialRunSummary> =>
+    ipcRenderer.invoke(IpcChannels.linkedinRunSequentialSearch, args),
   getRunLogs: (): Promise<RunLogRow[]> => ipcRenderer.invoke(IpcChannels.trackerGetRunLogs),
   listSavedSearches: (): Promise<LinkedinSavedSearch[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesList),
