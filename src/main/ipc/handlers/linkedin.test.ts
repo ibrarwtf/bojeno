@@ -39,7 +39,9 @@ vi.mock('../../db/queries/companyBlacklist', () => ({
   blacklistReason: vi.fn(() => undefined)
 }))
 vi.mock('../../db/queries/jobSnapshots', () => ({ insertJobSnapshot: vi.fn() }))
-vi.mock('../../db/queries/unmatchedQuestions', () => ({ insertUnmatchedQuestion: vi.fn() }))
+vi.mock('../../notifications/unmatchedQuestionNotifier', () => ({
+  insertUnmatchedQuestionAndNotify: vi.fn()
+}))
 vi.mock('../../db/queries/linkedinSavedSearches', () => ({
   listSavedSearches: vi.fn(),
   createSavedSearch: vi.fn(),

@@ -16,7 +16,7 @@ import { upsertAppliedJob } from '../../db/queries/appliedJobs'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
 import { isCompanyBlacklisted, blacklistReason } from '../../db/queries/companyBlacklist'
 import { insertJobSnapshot } from '../../db/queries/jobSnapshots'
-import { insertUnmatchedQuestion } from '../../db/queries/unmatchedQuestions'
+import { insertUnmatchedQuestionAndNotify } from '../../notifications/unmatchedQuestionNotifier'
 import { upsertCompany, getCompanyByName } from '../../db/queries/companies'
 import { fetchCompanyAboutInfo, searchCompanyByName } from '../../adapters/linkedin/company'
 import {
@@ -102,7 +102,7 @@ function recordUnmatchedQuestionIfAny(
   runId?: string
 ): void {
   for (const question of result.unmatchedQuestions ?? []) {
-    insertUnmatchedQuestion(db, {
+    insertUnmatchedQuestionAndNotify(db, {
       platform: 'linkedin',
       externalJobId: jobId,
       jobUrl: jobUrlFor(jobId),
