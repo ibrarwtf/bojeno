@@ -10,6 +10,9 @@ import appliedJobsSql from './migrations/20260911T2200_applied_jobs.sql?raw'
 import applyAttemptsSql from './migrations/20260911T2300_apply_attempts.sql?raw'
 import companyBlacklistSql from './migrations/20260911T2400_company_blacklist.sql?raw'
 import linkedinSavedSearchesSql from './migrations/20260912T0000_linkedin_saved_searches.sql?raw'
+import runLogsRicherDetailSql from './migrations/20260912T0100_run_logs_richer_detail.sql?raw'
+import jobSnapshotsAndUnmatchedQuestionsSql from './migrations/20260912T0200_job_snapshots_and_unmatched_questions.sql?raw'
+import unmatchedQuestionsContextSql from './migrations/20260912T0300_unmatched_questions_context.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -17,7 +20,13 @@ const migrations: Migration[] = [
   { id: '20260911T2200_applied_jobs.sql', sql: appliedJobsSql },
   { id: '20260911T2300_apply_attempts.sql', sql: applyAttemptsSql },
   { id: '20260911T2400_company_blacklist.sql', sql: companyBlacklistSql },
-  { id: '20260912T0000_linkedin_saved_searches.sql', sql: linkedinSavedSearchesSql }
+  { id: '20260912T0000_linkedin_saved_searches.sql', sql: linkedinSavedSearchesSql },
+  { id: '20260912T0100_run_logs_richer_detail.sql', sql: runLogsRicherDetailSql },
+  {
+    id: '20260912T0200_job_snapshots_and_unmatched_questions.sql',
+    sql: jobSnapshotsAndUnmatchedQuestionsSql
+  },
+  { id: '20260912T0300_unmatched_questions_context.sql', sql: unmatchedQuestionsContextSql }
 ]
 
 let db: DatabaseSync | undefined
