@@ -7,6 +7,7 @@ import {
   listUnresolvedUnmatchedQuestions,
   resolveUnmatchedQuestion
 } from '../../db/queries/unmatchedQuestions'
+import { insertUnmatchedQuestionAndNotify } from '../../notifications/unmatchedQuestionNotifier'
 import { appSessionStartedAt } from '../../appSession'
 
 export function registerTrackerHandlers(): void {
@@ -20,5 +21,18 @@ export function registerTrackerHandlers(): void {
   ipcMain.handle(
     IpcChannels.trackerResolveUnmatchedQuestion,
     (_event, id: number, answer: string) => resolveUnmatchedQuestion(getDb(), id, answer)
+  )
+  // Manual verification helper for #83's notification, not part of the real
+  // apply flow - see unmatchedQuestionNotifier.ts's doc comment.
+  ipcMain.handle(IpcChannels.trackerCreateTestUnmatchedQuestion, () =>
+    insertUnmatchedQuestionAndNotify(getDb(), {
+      platform: 'linkedin',
+      externalJobId: `test-${Date.now()}`,
+      jobUrl: 'https://www.linkedin.com/jobs/view/test/',
+      jobTitle: 'Test Job',
+      company: 'Test Company',
+      questionKind: 'text',
+      questionLabel: 'This is a test notification - safe to ignore'
+    })
   )
 }

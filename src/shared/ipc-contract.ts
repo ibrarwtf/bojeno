@@ -37,6 +37,7 @@ export const IpcChannels = {
   trackerGetRunLogs: 'tracker:getRunLogs',
   trackerGetUnmatchedQuestions: 'tracker:getUnmatchedQuestions',
   trackerResolveUnmatchedQuestion: 'tracker:resolveUnmatchedQuestion',
+  trackerCreateTestUnmatchedQuestion: 'tracker:createTestUnmatchedQuestion',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -138,6 +139,13 @@ export interface IpcContract {
   [IpcChannels.trackerResolveUnmatchedQuestion]: {
     args: [id: number, answer: string]
     return: void
+  }
+  /** Manual verification helper for the #83 notification - inserts a
+   *  throwaway unresolved row (a fresh external_job_id each call, so it
+   *  always fires) and returns whether a real OS notification went out. */
+  [IpcChannels.trackerCreateTestUnmatchedQuestion]: {
+    args: []
+    return: boolean
   }
   [IpcChannels.linkedinSavedSearchesList]: {
     args: []

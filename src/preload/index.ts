@@ -70,6 +70,11 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.trackerGetUnmatchedQuestions),
   resolveUnmatchedQuestion: (id: number, answer: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.trackerResolveUnmatchedQuestion, id, answer),
+  /** Manual verification helper for #83 - inserts a throwaway unresolved row
+   *  and fires the real notification path. See devcheck usage in the
+   *  #83 issue/PR notes. */
+  createTestUnmatchedQuestion: (): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.trackerCreateTestUnmatchedQuestion),
   listSavedSearches: (): Promise<LinkedinSavedSearch[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesList),
   createSavedSearch: (args: CreateSavedSearchArgs): Promise<LinkedinSavedSearch> =>

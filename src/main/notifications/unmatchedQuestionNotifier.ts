@@ -21,11 +21,15 @@ import { focusMainWindow } from '../window'
  * abstraction, since unmatched_questions is still the only source - a
  * second source can get its own equivalently-named notifier when it
  * actually exists, rather than factoring one out now.
+ *
+ * Returns whether a notification actually fired - callers don't need it
+ * (fire-and-forget from the apply flow), but it's what
+ * tracker:createTestUnmatchedQuestion reports back for live verification.
  */
 export function insertUnmatchedQuestionAndNotify(
   db: DatabaseSync,
   args: UnmatchedQuestionArgs
-): void {
+): boolean {
   const alreadyNotified = hasNotifiedUnresolvedQuestion(
     db,
     args.platform,
@@ -33,10 +37,11 @@ export function insertUnmatchedQuestionAndNotify(
     args.questionLabel
   )
   const id = insertUnmatchedQuestion(db, args)
-  if (alreadyNotified) return
+  if (alreadyNotified) return false
 
   const fired = fireNotification(args)
   if (fired) markUnmatchedQuestionNotified(db, id)
+  return fired
 }
 
 function fireNotification(args: Pick<UnmatchedQuestionArgs, 'jobTitle' | 'company'>): boolean {
