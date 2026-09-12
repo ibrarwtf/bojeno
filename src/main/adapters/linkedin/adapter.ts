@@ -146,6 +146,17 @@ export async function captureJobDetails(jobUrl: string): Promise<JobDetails> {
   const page = await findPageByUrlPart('linkedin.com')
   await gotoWithRetry(page, jobUrl, { waitUntil: 'domcontentloaded' })
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => undefined)
+  // Live-verified this session: the JD/premium-widget content sometimes renders after
+  // the network itself goes idle (client-side, no further requests), so a read right
+  // after networkidle can catch the page before "About the job" exists yet - two
+  // otherwise-identical calls a few hours apart on the same job produced full JD text
+  // once and an empty one the other time. Wait for that heading text directly rather
+  // than padding the networkidle timeout further, which wouldn't target the actual gap.
+  await page
+    .waitForFunction(() => document.querySelector('main')?.innerText.includes('About the job'), {
+      timeout: 5000
+    })
+    .catch(() => undefined)
 
   const { text, company, headings } = await page.evaluate(() => ({
     text: (document.querySelector('main') as HTMLElement | null)?.innerText ?? '',
