@@ -21,15 +21,20 @@ import {
   nextHeadingAfter
 } from './jobDetails'
 import { buildSearchUrl, parseCardFromLeaves } from './scan'
-import { buildApplyUrl, stepThroughModal } from './apply'
-import { buildRules } from './applyRules'
-import { loadAnswerBank } from '../../config/answerBank'
+import { buildApplyUrl, stepThroughEasyApplyModal } from './apply'
 
 // Fallback only for when the heading-based boundary (see nextHeadingAfter)
 // can't be found - confirmed live that a plain to-end-of-text slice runs
 // straight through this recommendation rail, the footer, and the language
 // picker along with whatever section it was actually after.
 const SECTION_STOP_MARKERS = ['More jobs', 'See more jobs like this']
+
+/** A job's standalone view URL - shared by every module that needs one
+ *  (sequentialRun's jobUrlFor bookkeeping, searchPaneApply's JobDetails
+ *  return value) so there's exactly one place that knows its shape. */
+export function jobUrlFor(jobId: string): string {
+  return `https://www.linkedin.com/jobs/view/${jobId}/`
+}
 
 export async function checkLogin(): Promise<LoginStatus> {
   const page = await findPageByUrlPart('linkedin.com')
@@ -251,11 +256,13 @@ export async function scanJobs(params: SearchUrlParams): Promise<ScannedJobCard[
 
 /**
  * Ported from afterq/tools/apply-easy-apply.mjs's attemptApply, minus its
- * queue/eligibility/batching layer (see apply.ts) - navigates to the job's
- * apply URL (which auto-opens the Easy Apply modal), builds field-matching
- * rules from the JD text plus a locally loaded AnswerBank (never committed
- * - see config/answerBank.ts), and steps through the modal. dryRun defaults to true;
- * the caller must explicitly pass false to actually submit.
+ * queue/eligibility/batching layer (see apply.ts) - navigates directly to
+ * the job's apply URL (which auto-opens the Easy Apply modal) given just a
+ * job id, with no search context required. This is the standalone/ad-hoc
+ * path; searchPaneApply.ts's applyFromSearchResults is the equivalent for
+ * a job already showing in an open search-results page, which shares the
+ * same modal-stepping logic via stepThroughEasyApplyModal. dryRun defaults
+ * to true; the caller must explicitly pass false to actually submit.
  */
 export async function applyToJob(jobId: string, dryRun = true): Promise<ApplyResult> {
   const page = await findPageByUrlPart('linkedin.com')
@@ -267,8 +274,5 @@ export async function applyToJob(jobId: string, dryRun = true): Promise<ApplyRes
     .innerText()
     .catch(() => '')
 
-  const answers = loadAnswerBank()
-  const rules = buildRules(answers, jdText)
-
-  return stepThroughModal(page, rules, dryRun)
+  return stepThroughEasyApplyModal(page, jdText, dryRun)
 }

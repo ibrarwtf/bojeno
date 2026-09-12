@@ -14,9 +14,11 @@ import {
   pickOptionByRule,
   looksLikeNoticeOptions,
   pickNoticeOption,
-  yesNoOptionMatch
+  yesNoOptionMatch,
+  buildRules
 } from './applyRules'
 import type { Rule } from './applyRules'
+import { loadAnswerBank } from '../../config/answerBank'
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 const pace = (min = 500, max = 1500): Promise<void> =>
@@ -355,4 +357,22 @@ export async function stepThroughModal(
 
   await discardModal(page, modal)
   return { outcome: 'needs_review', reason: 'exceeded max steps', header }
+}
+
+/**
+ * Builds field-matching rules from the JD text plus the locally loaded
+ * AnswerBank, then steps through whatever Easy Apply modal is already open
+ * on `page`. Shared by both the direct-URL apply path (adapter.ts's
+ * applyToJob) and the in-place search-results apply path
+ * (searchPaneApply.ts) - the two differ only in how they got the modal
+ * open, not in how they fill it out.
+ */
+export async function stepThroughEasyApplyModal(
+  page: Page,
+  jdText: string,
+  dryRun: boolean
+): Promise<ApplyResult> {
+  const answers = loadAnswerBank()
+  const rules = buildRules(answers, jdText)
+  return stepThroughModal(page, rules, dryRun)
 }
