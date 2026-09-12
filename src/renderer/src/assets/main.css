@@ -302,6 +302,47 @@ body {
   color: var(--ev-c-text-2);
 }
 
+.unmatched-questions {
+  margin-top: 16px;
+}
+
+.unmatched-questions-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.unmatched-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.unmatched-questions-item {
+  border: 1px solid var(--ev-c-gray-2);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.unmatched-questions-item-label {
+  font-weight: 600;
+}
+
+.unmatched-questions-item-meta {
+  font-size: 12px;
+  color: var(--ev-c-text-2);
+  margin: 4px 0 8px;
+}
+
+.unmatched-questions-item-form {
+  display: flex;
+  gap: 8px;
+}
+
+.unmatched-questions-item-form input {
+  flex: 1;
+  padding: 6px 8px;
+}
+
 /* LinkedIn-specific saved-search list - not shared with any future Naukri equivalent. */
 .linkedin-saved-searches {
   position: fixed;
