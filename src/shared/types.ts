@@ -205,6 +205,16 @@ export interface PlatformApplyRate {
   last24h: number
 }
 
+/**
+ * LinkedIn's own fit-card wording, live-verified against real postings
+ * 2026-09-13: "You'd be a top applicant, we can help you stand out" (top)
+ * vs "Job match is high, we can help you stand out" (high). Only these two
+ * variants have been observed; 'generic' covers a fit card present with
+ * different wording (e.g. the historically-seen "Use AI to assess how you
+ * fit"), which is neither confirmed-good nor confirmed-bad.
+ */
+export type FitTier = 'top' | 'high' | 'generic'
+
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
 export interface JobDetails {
   jobUrl: string
@@ -216,6 +226,10 @@ export interface JobDetails {
   clickedApplyCount: string | null
   applicantCount: string | null
   hasFitSignal: boolean
+  /** LinkedIn's own fit-card tier, live-verified 2026-09-13 - see
+   *  parseFitTier in jobDetails.ts. null when the fit card is absent, or
+   *  present with wording that doesn't match either known tier. */
+  fitTier: FitTier | null
   yearsRequired: number | null
   descriptionText: string
   applicantInsightsText: string | null

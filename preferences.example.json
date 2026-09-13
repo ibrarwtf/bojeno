@@ -5,15 +5,36 @@
   "titleFilter": {
     "positive": [
       "ai",
+      "artificial intelligence",
       "ml",
       "machine learning",
       "llm",
+      "automation",
+      "agentic",
+      "data",
+      "generative ai",
+      "genai",
+      "nlp",
+      "computer vision",
+      "mlops",
+      "conversational ai",
+      "rpa",
+      "n8n",
+      "workflow automation",
       "engineer",
       "developer",
-      "automation",
-      "data scientist"
+      "specialist",
+      "analyst",
+      "consultant",
+      "scientist"
     ],
-    "negative": [".net", "salesforce", "intern"]
+    "negative": [
+      "intern",
+      "internship",
+      "executive",
+      "chief",
+      "founder"
+    ]
   },
-  "requireFitSignal": false
+  "requireFitSignal": true
 }

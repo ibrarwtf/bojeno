@@ -24,7 +24,12 @@ import { selectJobCard, captureActiveJobDetails, applyFromSearchResults } from '
 export { jobUrlFor }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
-const paceBetweenJobs = (): Promise<void> => sleep(3000 + Math.floor(Math.random() * 3000))
+// Widened per a real user's browsing cadence, not a fixed bot-like interval -
+// scraping-detection literature (see PR description/session notes) converges
+// on 2-10s randomized gaps between page-level actions as human-plausible;
+// this sits inside that range with room for natural variance rather than a
+// tight 3-6s band.
+const paceBetweenJobs = (): Promise<void> => sleep(4000 + Math.floor(Math.random() * 6000))
 
 // A generous ceiling, not a real expectation - stops a runaway walk (a
 // mis-scoped search with hundreds of pages) from turning into an

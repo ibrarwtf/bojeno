@@ -117,7 +117,16 @@ export function createWindow(): BrowserWindow {
 
   // The renderer's own <title> would otherwise win once it loads.
   mainWindow.on('page-title-updated', (event) => event.preventDefault())
-  mainWindow.on('ready-to-show', () => mainWindow?.show())
+  // BOJENO_START_MINIMIZED=1 npm run dev - opt-in for a dev session that
+  // restarts the app repeatedly (e.g. an agent driving live runs) and
+  // doesn't want the window stealing focus/covering whatever else is on
+  // screen every time. Shows briefly then minimizes, rather than never
+  // showing at all - ready-to-show still needs to fire once so the window
+  // actually finishes initializing.
+  mainWindow.on('ready-to-show', () => {
+    mainWindow?.show()
+    if (process.env['BOJENO_START_MINIMIZED']) mainWindow?.minimize()
+  })
   mainWindow.on('resize', layoutViews)
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)

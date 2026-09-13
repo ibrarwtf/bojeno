@@ -38,8 +38,8 @@ export function evaluateApplicantPreference(
     return `JD requires ${details.yearsRequired} years, over preference cap of ${preferences.maxYearsRequired}`
   }
 
-  if (preferences.requireFitSignal && !details.hasFitSignal) {
-    return 'no premium fit signal (Top choice/Good match) on this posting'
+  if (preferences.requireFitSignal && details.fitTier !== 'top' && details.fitTier !== 'high') {
+    return `fit tier "${details.fitTier ?? 'none'}" is not top/high`
   }
 
   return undefined

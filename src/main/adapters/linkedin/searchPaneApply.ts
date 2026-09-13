@@ -24,6 +24,7 @@ import {
   parsePostedRelative,
   parseClickedApplyCount,
   hasFitSignal,
+  parseFitTier,
   extractBetween,
   nextHeadingAfter,
   extractEmails,
@@ -185,6 +186,7 @@ export async function captureActiveJobDetails(jobId: string): Promise<JobDetails
     clickedApplyCount: parseClickedApplyCount(text),
     applicantCount: parseApplicantCount(text),
     hasFitSignal: hasFitSignal(text),
+    fitTier: parseFitTier(text),
     yearsRequired: parseYearsRequired(text),
     descriptionText,
     applicantInsightsText: extractBetween(

@@ -17,14 +17,17 @@ export interface TitleFilterConfig {
 }
 
 /**
- * Compiles a lowercased keyword into a matcher. A short 2-3 letter keyword
- * ("ai", "ml", "vp") is word-boundary anchored so it can't match inside an
- * unrelated word (e.g. "ai" inside "again" or "domain"); anything else
- * (multi-word phrases, keywords with punctuation like ".net") stays a plain
- * substring match.
+ * Compiles a lowercased keyword into a matcher. A single alphabetic word
+ * ("ai", "ml", "vp", "intern", "engineer") is word-boundary anchored so it
+ * can't match inside an unrelated word - not just short ones: "intern" as a
+ * plain substring wrongly matched "Consumer Internet" (confirmed live,
+ * 2026-09-13), the same class of bug the original 2-3 letter case existed to
+ * prevent for "ai" inside "again"/"domain". A keyword with a space or
+ * punctuation (multi-word phrases, ".net") keeps the substring match, since
+ * \b can't anchor across those meaningfully.
  */
 export function compileKeyword(keyword: string): (lower: string) => boolean {
-  if (/^[a-z]{2,3}$/.test(keyword)) {
+  if (/^[a-z]+$/.test(keyword)) {
     const re = new RegExp(`\\b${keyword}\\b`)
     return (lower) => re.test(lower)
   }
