@@ -1,9 +1,18 @@
 {
-  "maxApplicantCount": 100,
-  "maxApplicantInsightTotal": 200,
+  "maxApplicantCount": 20,
+  "maxApplicantInsightTotal": 20,
   "maxYearsRequired": 4,
   "titleFilter": {
-    "positive": ["ai", "ml", "machine learning", "llm", "engineer", "data scientist"],
+    "positive": [
+      "ai",
+      "ml",
+      "machine learning",
+      "llm",
+      "engineer",
+      "developer",
+      "automation",
+      "data scientist"
+    ],
     "negative": [".net", "salesforce"]
   }
 }

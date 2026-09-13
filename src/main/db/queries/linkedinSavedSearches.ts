@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { LinkedinSavedSearch } from '../../../shared/types'
+import type { DatePosted, LinkedinSavedSearch, WorkplaceType } from '../../../shared/types'
 
 interface SavedSearchRow {
   id: number
@@ -10,6 +10,8 @@ interface SavedSearchRow {
   distance_km: number | null
   sort_by_recent: number
   easy_apply_only: number
+  date_posted: string | null
+  workplace_types: string | null
   created_at: string
   last_run_at: string | null
 }
@@ -24,13 +26,17 @@ function toSavedSearch(row: SavedSearchRow): LinkedinSavedSearch {
     distanceKm: row.distance_km,
     sortByRecent: row.sort_by_recent === 1,
     easyApplyOnly: row.easy_apply_only === 1,
+    datePosted: (row.date_posted as DatePosted | null) ?? null,
+    workplaceTypes: row.workplace_types
+      ? (JSON.parse(row.workplace_types) as WorkplaceType[])
+      : null,
     createdAt: row.created_at,
     lastRunAt: row.last_run_at
   }
 }
 
 const SELECT_COLUMNS =
-  'id, name, keywords, location, geo_id, distance_km, sort_by_recent, easy_apply_only, created_at, last_run_at'
+  'id, name, keywords, location, geo_id, distance_km, sort_by_recent, easy_apply_only, date_posted, workplace_types, created_at, last_run_at'
 
 /** Most recently created first. */
 export function listSavedSearches(db: DatabaseSync): LinkedinSavedSearch[] {
@@ -48,6 +54,8 @@ export interface CreateSavedSearchArgs {
   distanceKm?: number
   sortByRecent?: boolean
   easyApplyOnly?: boolean
+  datePosted?: DatePosted
+  workplaceTypes?: WorkplaceType[]
 }
 
 export function createSavedSearch(
@@ -57,8 +65,8 @@ export function createSavedSearch(
   const result = db
     .prepare(
       `INSERT INTO linkedin_saved_searches
-        (name, keywords, location, geo_id, distance_km, sort_by_recent, easy_apply_only, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        (name, keywords, location, geo_id, distance_km, sort_by_recent, easy_apply_only, date_posted, workplace_types, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       args.name,
@@ -68,6 +76,8 @@ export function createSavedSearch(
       args.distanceKm ?? null,
       args.sortByRecent ? 1 : 0,
       args.easyApplyOnly ? 1 : 0,
+      args.datePosted ?? null,
+      args.workplaceTypes?.length ? JSON.stringify(args.workplaceTypes) : null,
       new Date().toISOString()
     )
   const row = db

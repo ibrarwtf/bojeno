@@ -103,6 +103,8 @@ export interface LinkedinSavedSearch {
   distanceKm: number | null
   sortByRecent: boolean
   easyApplyOnly: boolean
+  datePosted: DatePosted | null
+  workplaceTypes: WorkplaceType[] | null
   createdAt: string
   lastRunAt: string | null
 }

@@ -11,12 +11,13 @@ import { runSavedSearchNow, isLinkedinRunActive } from '../ipc/handlers/linkedin
 import { createScheduler, type Scheduler } from './scheduler'
 import type { LinkedinSavedSearch } from '../../shared/types'
 
-// Deliberately conservative: a scheduled tick runs in dry-run mode (real
-// navigation and apply-flow, no real submission - see the `mode` handling
-// in runSavedSearchNow/linkedin.ts) until the owner has watched a few
-// scheduled ticks fire correctly and decides to flip this. Flipping it to
-// 'live' is the one-line change that makes scheduled runs apply for real;
-// nothing else about the wiring changes.
+// Staying in 'dry-run' deliberately even after #87 (AI/ML engineer saved
+// searches) - each of the 5 searches was verified manually (dry-run, via
+// devcheck): India correctly skipped high-applicant-count and blacklisted
+// postings and passed a genuine 10-applicant match, and Remote's
+// workplaceTypes filter returned exclusively remote-tagged postings. The
+// owner flips this to 'live' themselves when ready to let scheduled runs
+// submit for real; nothing else needs to change.
 const SCHEDULED_RUN_MODE = 'dry-run' as const
 
 /** Picks the saved search that has gone longest without a run - the closest
@@ -47,9 +48,15 @@ async function triggerScheduledRun(): Promise<void> {
         geoId: search.geoId ?? undefined,
         distanceKm: search.distanceKm ?? undefined,
         sortByRecent: search.sortByRecent,
-        easyApplyOnly: search.easyApplyOnly
+        easyApplyOnly: search.easyApplyOnly,
+        datePosted: search.datePosted ?? undefined,
+        workplaceTypes: search.workplaceTypes ?? undefined
       },
-      dryRun: true,
+      // effectiveDryRun in runSavedSearchNow is `mode === 'live' ? dryRun : true` -
+      // this flag has to flip alongside SCHEDULED_RUN_MODE, or 'live' mode
+      // silently stays a no-op dry run. `false` here means "submit for real
+      // when mode is 'live'"; when mode is 'dry-run' this is ignored anyway.
+      dryRun: false,
       savedSearchName: search.name
     },
     SCHEDULED_RUN_MODE,
