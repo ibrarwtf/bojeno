@@ -11,13 +11,13 @@ import { runSavedSearchNow, isLinkedinRunActive } from '../ipc/handlers/linkedin
 import { createScheduler, type Scheduler } from './scheduler'
 import type { LinkedinSavedSearch } from '../../shared/types'
 
-// Staying in 'dry-run' deliberately even after #87 (AI/ML engineer saved
-// searches) - each of the 5 searches was verified manually (dry-run, via
-// devcheck): India correctly skipped high-applicant-count and blacklisted
-// postings and passed a genuine 10-applicant match, and Remote's
-// workplaceTypes filter returned exclusively remote-tagged postings. The
-// owner flips this to 'live' themselves when ready to let scheduled runs
-// submit for real; nothing else needs to change.
+// Temporarily back to 'dry-run' while a manual, page-capped, one-search-
+// at-a-time campaign (per the owner's explicit request) is driven directly
+// via runSavedSearchNow/devcheck instead - the passive every-60s ticker
+// here has no page cap and no supervision, and it self-fired an unbounded
+// live run mid-campaign the first time this was set to 'live', racing the
+// controlled runs. Flip to 'live' once the campaign is done and a query
+// config is settled on, so ongoing scheduled runs submit for real too.
 const SCHEDULED_RUN_MODE = 'dry-run' as const
 
 /** Picks the saved search that has gone longest without a run - the closest

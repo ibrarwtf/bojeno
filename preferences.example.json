@@ -1,7 +1,7 @@
 {
   "maxApplicantCount": 20,
   "maxApplicantInsightTotal": 20,
-  "maxYearsRequired": 4,
+  "maxYearsRequired": 5,
   "titleFilter": {
     "positive": [
       "ai",
@@ -13,6 +13,7 @@
       "automation",
       "data scientist"
     ],
-    "negative": [".net", "salesforce"]
-  }
+    "negative": [".net", "salesforce", "intern"]
+  },
+  "requireFitSignal": false
 }

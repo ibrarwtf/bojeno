@@ -78,7 +78,8 @@ function isEligible(card: ScannedJobCard): boolean {
 export async function runSequentialSearch(
   params: SearchUrlParams,
   dryRun: boolean,
-  hooks: SequentialRunHooks
+  hooks: SequentialRunHooks,
+  maxPages: number = MAX_PAGES
 ): Promise<SequentialRunSummary> {
   const summary: SequentialRunSummary = {
     total: 0,
@@ -161,7 +162,7 @@ export async function runSequentialSearch(
     const pagination = await readPaginationState(page)
     summary.totalPages = pagination?.totalPages ?? summary.totalPages
     if (!pagination || pagination.currentPage >= pagination.totalPages) break
-    if (summary.pagesScanned >= MAX_PAGES) break
+    if (summary.pagesScanned >= maxPages) break
 
     const moved = await goToNextPage(page)
     if (!moved) break
