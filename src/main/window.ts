@@ -146,6 +146,19 @@ export function showHome(): void {
   layoutViews()
 }
 
+/**
+ * Restores/focuses the main window and brings the review queue (Home) to
+ * the front - used when the owner clicks a native OS notification about a
+ * new item on the review queue (e.g. an unmatched screening question).
+ */
+export function focusMainWindow(): void {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+  showHome()
+}
+
 export function activateTab(platform: Platform, navigateToLogin?: boolean): void {
   activePlatform = platform
   homeActive = false

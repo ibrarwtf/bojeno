@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
   --ev-c-white: #ffffff;
   --ev-c-white-soft: #f8f8f8;
@@ -29,6 +31,86 @@
   --color-background-mute: var(--ev-c-black-mute);
 
   --color-text: var(--ev-c-text-1);
+}
+
+/* shadcn/ui base tokens — the app is dark-only today (no theme toggle in
+   scope for this migration), so these are defined once against the existing
+   dark palette above rather than as a light/dark pair. */
+:root {
+  --radius: 0.5rem;
+
+  --background: var(--ev-c-black);
+  --foreground: var(--ev-c-text-1);
+
+  --card: var(--ev-c-black-soft);
+  --card-foreground: var(--ev-c-text-1);
+
+  --popover: var(--ev-c-black-soft);
+  --popover-foreground: var(--ev-c-text-1);
+
+  --primary: #3b82f6;
+  --primary-foreground: #f8fafc;
+
+  --secondary: var(--ev-c-gray-3);
+  --secondary-foreground: var(--ev-c-text-1);
+
+  --muted: var(--ev-c-black-mute);
+  --muted-foreground: var(--ev-c-text-2);
+
+  --accent: var(--ev-c-gray-3);
+  --accent-foreground: var(--ev-c-text-1);
+
+  --destructive: #cf222e;
+  --destructive-foreground: #f8fafc;
+
+  --success: #2da44e;
+  --success-foreground: #f8fafc;
+  --warning: #9a6700;
+  --warning-foreground: #f8fafc;
+
+  --border: var(--ev-c-gray-2);
+  --input: var(--ev-c-gray-2);
+  --ring: var(--ev-c-gray-1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 *,

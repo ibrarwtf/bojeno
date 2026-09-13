@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {},
@@ -11,6 +12,9 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [react()]
+    // tailwindcss() only ever touches the renderer's own Vite pipeline (it
+    // hooks in as a PostCSS-equivalent transform on renderer CSS) — main/
+    // preload builds above have no plugins array and are untouched.
+    plugins: [react(), tailwindcss()]
   }
 })

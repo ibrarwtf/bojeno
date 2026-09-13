@@ -11,16 +11,20 @@ import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
+  CreatePipelineContactArgs,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
   LinkedinSavedSearch,
   LoginStatus,
+  PipelineContactRow,
   Platform,
+  PlatformApplyRate,
   RunLogRow,
   ScannedJobCard,
   SequentialRunSummary,
-  UnmatchedQuestionRow
+  UnmatchedQuestionRow,
+  UpdatePipelineContactArgs
 } from '../shared/types'
 
 const bojenoApi = {
@@ -53,6 +57,8 @@ const bojenoApi = {
   },
   getAppliedCountHistory: (): Promise<AppliedCountPoint[]> =>
     ipcRenderer.invoke(IpcChannels.trackerGetAppliedCountHistory),
+  getApplyRate: (platform: Platform): Promise<PlatformApplyRate> =>
+    ipcRenderer.invoke(IpcChannels.trackerGetApplyRate, platform),
   captureJobDetails: (jobUrl: string): Promise<JobDetails> =>
     ipcRenderer.invoke(IpcChannels.linkedinCaptureJobDetails, jobUrl),
   scanJobs: (params: ScanJobsArgs): Promise<ScannedJobCard[]> =>
@@ -70,6 +76,11 @@ const bojenoApi = {
     ipcRenderer.invoke(IpcChannels.trackerGetUnmatchedQuestions),
   resolveUnmatchedQuestion: (id: number, answer: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.trackerResolveUnmatchedQuestion, id, answer),
+  /** Manual verification helper for #83 - inserts a throwaway unresolved row
+   *  and fires the real notification path. See devcheck usage in the
+   *  #83 issue/PR notes. */
+  createTestUnmatchedQuestion: (): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.trackerCreateTestUnmatchedQuestion),
   listSavedSearches: (): Promise<LinkedinSavedSearch[]> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesList),
   createSavedSearch: (args: CreateSavedSearchArgs): Promise<LinkedinSavedSearch> =>
@@ -77,7 +88,17 @@ const bojenoApi = {
   deleteSavedSearch: (id: number): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesDelete, id),
   touchSavedSearchLastRun: (id: number): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesTouchRun, id)
+    ipcRenderer.invoke(IpcChannels.linkedinSavedSearchesTouchRun, id),
+  listPipelineContacts: (): Promise<PipelineContactRow[]> =>
+    ipcRenderer.invoke(IpcChannels.pipelineListContacts),
+  createPipelineContact: (args: CreatePipelineContactArgs): Promise<PipelineContactRow> =>
+    ipcRenderer.invoke(IpcChannels.pipelineCreateContact, args),
+  updatePipelineContact: (args: UpdatePipelineContactArgs): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.pipelineUpdateContact, args),
+  deletePipelineContact: (id: number): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.pipelineDeleteContact, id),
+  listFollowUpsDue: (): Promise<PipelineContactRow[]> =>
+    ipcRenderer.invoke(IpcChannels.pipelineListFollowUpsDue)
 }
 
 if (process.contextIsolated) {

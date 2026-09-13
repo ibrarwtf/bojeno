@@ -7,6 +7,8 @@ import { registerLinkedinHandlers } from './ipc/handlers/linkedin'
 import { registerNaukriHandlers } from './ipc/handlers/naukri'
 import { registerPlatformHandlers } from './ipc/handlers/platform'
 import { registerTrackerHandlers } from './ipc/handlers/tracker'
+import { registerPipelineHandlers } from './ipc/handlers/pipeline'
+import { startScheduler } from './scheduler/runScheduler'
 
 // A second launch (a leftover process from an unclean previous dev session,
 // or the app opened twice by hand) would otherwise run fully independently
@@ -45,8 +47,14 @@ if (!gotSingleInstanceLock) {
     registerNaukriHandlers()
     registerPlatformHandlers()
     registerTrackerHandlers()
+    registerPipelineHandlers()
 
     createWindow()
+
+    // After createWindow() - ensurePlatformViewLoaded (used by the run
+    // pipeline a scheduled tick calls) is a no-op until the platform
+    // WebContentsViews it navigates exist. See scheduler/runScheduler.ts.
+    startScheduler()
 
     app.on('activate', function () {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()

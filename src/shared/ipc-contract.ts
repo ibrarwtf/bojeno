@@ -2,17 +2,20 @@ import type {
   ActiveTabUrl,
   AppliedCountPoint,
   ApplyResult,
+  CreatePipelineContactArgs,
   FetchAppliedCountResult,
   FetchRecentAppliedJobsResult,
   JobDetails,
   LinkedinSavedSearch,
   LoginStatus,
+  PipelineContactRow,
   Platform,
   RunLogRow,
   ScannedJobCard,
   SearchUrlParams,
   SequentialRunSummary,
-  UnmatchedQuestionRow
+  UnmatchedQuestionRow,
+  UpdatePipelineContactArgs
 } from './types'
 
 export const IpcChannels = {
@@ -37,6 +40,13 @@ export const IpcChannels = {
   trackerGetRunLogs: 'tracker:getRunLogs',
   trackerGetUnmatchedQuestions: 'tracker:getUnmatchedQuestions',
   trackerResolveUnmatchedQuestion: 'tracker:resolveUnmatchedQuestion',
+  trackerCreateTestUnmatchedQuestion: 'tracker:createTestUnmatchedQuestion',
+  trackerGetApplyRate: 'tracker:getApplyRate',
+  pipelineListContacts: 'pipeline:listContacts',
+  pipelineCreateContact: 'pipeline:createContact',
+  pipelineUpdateContact: 'pipeline:updateContact',
+  pipelineDeleteContact: 'pipeline:deleteContact',
+  pipelineListFollowUpsDue: 'pipeline:listFollowUpsDue',
   /** One-way, main -> renderer push. Not part of IpcContract's invoke/handle shape. */
   platformActiveTabUrlChanged: 'platform:activeTabUrlChanged'
 } as const
@@ -139,6 +149,13 @@ export interface IpcContract {
     args: [id: number, answer: string]
     return: void
   }
+  /** Manual verification helper for the #83 notification - inserts a
+   *  throwaway unresolved row (a fresh external_job_id each call, so it
+   *  always fires) and returns whether a real OS notification went out. */
+  [IpcChannels.trackerCreateTestUnmatchedQuestion]: {
+    args: []
+    return: boolean
+  }
   [IpcChannels.linkedinSavedSearchesList]: {
     args: []
     return: LinkedinSavedSearch[]
@@ -154,5 +171,25 @@ export interface IpcContract {
   [IpcChannels.linkedinSavedSearchesTouchRun]: {
     args: [number]
     return: void
+  }
+  [IpcChannels.pipelineListContacts]: {
+    args: []
+    return: PipelineContactRow[]
+  }
+  [IpcChannels.pipelineCreateContact]: {
+    args: [CreatePipelineContactArgs]
+    return: PipelineContactRow
+  }
+  [IpcChannels.pipelineUpdateContact]: {
+    args: [UpdatePipelineContactArgs]
+    return: void
+  }
+  [IpcChannels.pipelineDeleteContact]: {
+    args: [id: number]
+    return: void
+  }
+  [IpcChannels.pipelineListFollowUpsDue]: {
+    args: []
+    return: PipelineContactRow[]
   }
 }

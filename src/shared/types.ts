@@ -188,6 +188,19 @@ export interface UnmatchedQuestionRow {
   resolved: boolean
   answer: string | null
   runId: string | null
+  notifiedAt: string | null
+}
+
+/**
+ * Logging/visibility-only rate readout for a single platform - see #84 and
+ * bojeno-project-brief.md §5. Never used to cap, block, or auto-pause a run.
+ */
+export interface PlatformApplyRate {
+  platform: Platform
+  /** Real (non-dry-run) applies with outcome 'applied' in the last 60 minutes. */
+  lastHour: number
+  /** Same, over the last 24 hours. */
+  last24h: number
 }
 
 /** Everything captureJobDetails can read off a LinkedIn job's detail page. */
@@ -219,6 +232,53 @@ export interface JobDetails {
   jobPosterName: string | null
   jobPosterTitle: string | null
   jobPosterProfileUrl: string | null
+}
+
+/** Status of a manually-tracked pipeline contact - see PipelineContactRow. */
+export type PipelineContactStatus = 'contacted' | 'interview_scheduled' | 'no_response' | 'closed'
+
+/**
+ * One manually-logged funnel entry for stages 3-5 (contacted, interview
+ * scheduled, outcome) - see bojeno-project-brief.md §2/§9 and issue #85.
+ * `externalJobId` optionally links back to a specific applied_jobs/
+ * apply_attempts row when the contact is about a known job; left null for a
+ * cold recruiter reach-out with no job attached yet.
+ */
+export interface PipelineContactRow {
+  id: number
+  platform: Platform
+  company: string
+  externalJobId: string | null
+  contactedAt: string
+  contactNote: string | null
+  interviewScheduledAt: string | null
+  lastFollowUpAt: string | null
+  status: PipelineContactStatus
+  createdAt: string
+}
+
+/** Args for creating a new pipeline_contacts row - see insertPipelineContact. */
+export interface CreatePipelineContactArgs {
+  platform: Platform
+  company: string
+  externalJobId?: string | null
+  contactedAt: string
+  contactNote?: string | null
+  interviewScheduledAt?: string | null
+  lastFollowUpAt?: string | null
+  status?: PipelineContactStatus
+}
+
+/** Args for updating an existing pipeline_contacts row - all fields optional except id. */
+export interface UpdatePipelineContactArgs {
+  id: number
+  company?: string
+  externalJobId?: string | null
+  contactedAt?: string
+  contactNote?: string | null
+  interviewScheduledAt?: string | null
+  lastFollowUpAt?: string | null
+  status?: PipelineContactStatus
 }
 
 /**

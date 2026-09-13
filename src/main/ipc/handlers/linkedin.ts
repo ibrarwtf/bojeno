@@ -5,7 +5,7 @@ import type {
   CreateSavedSearchArgs,
   RunSequentialSearchArgs
 } from '../../../shared/ipc-contract'
-import type { ApplyResult, JobDetails, RunMode } from '../../../shared/types'
+import type { ApplyResult, JobDetails, RunMode, SequentialRunSummary } from '../../../shared/types'
 import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
 import { findPageByUrlPart, gotoWithRetry } from '../../cdp'
@@ -16,7 +16,7 @@ import { upsertAppliedJob } from '../../db/queries/appliedJobs'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
 import { isCompanyBlacklisted, blacklistReason } from '../../db/queries/companyBlacklist'
 import { insertJobSnapshot } from '../../db/queries/jobSnapshots'
-import { insertUnmatchedQuestion } from '../../db/queries/unmatchedQuestions'
+import { insertUnmatchedQuestionAndNotify } from '../../notifications/unmatchedQuestionNotifier'
 import { upsertCompany, getCompanyByName } from '../../db/queries/companies'
 import { fetchCompanyAboutInfo, searchCompanyByName } from '../../adapters/linkedin/company'
 import {
@@ -82,6 +82,15 @@ function decideSkip(
  */
 const activeRuns = new Map<string, { cancelled: boolean }>()
 
+/** True while a LinkedIn search run - manual or scheduled - is in flight.
+ *  The scheduler (scheduler/runScheduler.ts) uses this as the same busy
+ *  guard the manual "run now" button is already subject to, so a run in
+ *  progress blocks a scheduled tick exactly the way it blocks a second
+ *  manual run. */
+export function isLinkedinRunActive(): boolean {
+  return activeRuns.size > 0
+}
+
 /** Cached login check, reused by every script that just needs to know
  *  whether it's safe to proceed - only the explicit "Check" button
  *  (linkedinCheckLogin below) forces a real fresh navigation. */
@@ -102,7 +111,7 @@ function recordUnmatchedQuestionIfAny(
   runId?: string
 ): void {
   for (const question of result.unmatchedQuestions ?? []) {
-    insertUnmatchedQuestion(db, {
+    insertUnmatchedQuestionAndNotify(db, {
       platform: 'linkedin',
       externalJobId: jobId,
       jobUrl: jobUrlFor(jobId),
@@ -140,7 +149,8 @@ async function captureCompanyInfoIfApplied(
   mode: RunMode,
   result: ApplyResult,
   details: JobDetails,
-  restoreUrl?: string
+  restoreUrl?: string,
+  triggerType: 'manual' | 'auto' | 'scheduled' = 'manual'
 ): Promise<void> {
   if (result.outcome !== 'applied' || !details.companyUrl || mode === 'read-only') return
 
@@ -156,7 +166,7 @@ async function captureCompanyInfoIfApplied(
     insertRunLog(db, {
       script: 'linkedin:captureCompanyInfo',
       outcome: 'failed',
-      triggerType: 'manual',
+      triggerType,
       runMode: mode,
       entityType: 'job',
       entityId: details.jobUrl,
@@ -201,6 +211,189 @@ async function resolveCompanyId(db: DatabaseSync, name: string): Promise<string 
     remark: null
   })
   return found.linkedinCompanyId
+}
+
+/**
+ * The one run pipeline behind both the manual "run now" (▶) button in
+ * SavedSearches.tsx and the priority-window scheduler (scheduler/runScheduler.ts)
+ * - see #84. `triggerType` only changes what gets recorded in run_logs
+ * (`manual` vs `scheduled`); the guard against a second concurrent run,
+ * the login check, the title/blacklist/preference filtering and every DB
+ * write are identical either way, so a scheduled trigger is blocked by an
+ * in-flight run exactly the way a second manual run already is.
+ */
+export function runSavedSearchNow(
+  { runId, params, dryRun, savedSearchName }: RunSequentialSearchArgs,
+  mode: RunMode = 'live',
+  triggerType: 'manual' | 'scheduled' = 'manual'
+): Promise<SequentialRunSummary> {
+  // Rejected synchronously, before this call ever reaches withLock's
+  // navigation queue - withLock only serializes navigation, so without
+  // this check a second run would silently queue behind the first and
+  // start on its own once the first's whole body resolved, instead of
+  // being refused. activeRuns is only ever populated by this function,
+  // so any entry present means a LinkedIn run is already in flight -
+  // "per platform" and "any" coincide today because there's only one
+  // saved search; real queueing across multiple saved searches is
+  // explicitly out of scope until a second one exists (see
+  // SavedSearches.tsx). The scheduler relies on this same guard (via
+  // isLinkedinRunActive) to skip a tick instead of racing a manual run.
+  if (activeRuns.size > 0) {
+    throw new Error('A LinkedIn search run is already in progress')
+  }
+  // Set eagerly (before withLock, not inside it) so this check-then-set
+  // is synchronous from the caller's point of view - Electron dispatches
+  // one IPC message at a time, so two rapid calls can't interleave here.
+  // runId comes from the caller (not generated here) so it's known
+  // before the run starts - the only way a Stop button can target a
+  // run that's still executing.
+  activeRuns.set(runId, { cancelled: false })
+
+  return withLock('linkedin', async () => {
+    try {
+      ensurePlatformViewLoaded('linkedin')
+      const db = getDb()
+      const script = 'linkedin:runSequentialSearch'
+      const startedAt = Date.now()
+
+      const loginStatus = await ensureLoggedIn()
+      if (!loginStatus.loggedIn) {
+        insertRunLog(db, {
+          runId,
+          script,
+          outcome: 'auth_required',
+          triggerType,
+          runMode: mode,
+          duration: Date.now() - startedAt,
+          detail: { params }
+        })
+        return {
+          total: 0,
+          applied: 0,
+          dryRunApplied: 0,
+          needsReview: 0,
+          skipped: 0,
+          failed: 0,
+          cancelled: false,
+          pagesScanned: 0,
+          totalPages: null
+        }
+      }
+
+      const effectiveDryRun = mode === 'live' ? dryRun : true
+      const preferences = loadPreferences()
+      const titleFilter = buildTitleFilter(preferences.titleFilter)
+
+      const summary = await runSequentialSearch(params, effectiveDryRun, {
+        isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
+        // Cheap card-level check, before selectJobCard/JD capture ever
+        // happens - see titleFilter.ts. Skips a card whose title doesn't
+        // pass the user's own positive/negative keyword config.
+        filterCard: (card) =>
+          titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
+        // Same gate applyToJob's own handler uses - checked here too since this
+        // walk decides per-job whether to apply at all, applyToJob never sees a
+        // blacklisted or over-preference job. Also where the JD capture gets
+        // persisted - decide() is called exactly once per job, right after capture.
+        decide: (step, details) => {
+          insertJobSnapshot(
+            db,
+            { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
+            details
+          )
+          return decideSkip(db, details, preferences)
+        },
+        onSkipped: (step, reason, details) =>
+          insertRunLog(db, {
+            runId,
+            script: `${script}:job`,
+            outcome: 'skipped',
+            triggerType,
+            runMode: mode,
+            entityType: 'job',
+            entityId: step.card.id,
+            jobTitle: details?.title ?? step.card.title,
+            company: details?.company ?? step.card.company,
+            location: step.card.location,
+            detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
+          }),
+        onApplyResult: async (step, result, details) => {
+          const attemptedAt = new Date().toISOString()
+          if (mode !== 'read-only') {
+            insertApplyAttempt(db, {
+              platform: 'linkedin',
+              externalJobId: step.card.id,
+              outcome: result.outcome,
+              reason: result.reason,
+              header: result.header,
+              dryRun: effectiveDryRun,
+              attemptedAt
+            })
+          }
+          recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
+          // Capture the current search-results URL before any navigation
+          // - captureCompanyInfoIfApplied restores this afterward so the
+          // next selectJobCard() isn't stranded on the company's /about page.
+          const returnUrl = await findPageByUrlPart('linkedin.com')
+            .then((page) => page.url())
+            .catch(() => undefined)
+          await captureCompanyInfoIfApplied(db, mode, result, details, returnUrl, triggerType)
+          insertRunLog(db, {
+            runId,
+            script: `${script}:job`,
+            outcome: result.outcome === 'error' ? 'failed' : 'success',
+            triggerType,
+            runMode: mode,
+            entityType: 'job',
+            entityId: step.card.id,
+            jobTitle: details.title,
+            company: details.company,
+            location: step.card.location,
+            detail: {
+              resultOutcome: result.outcome,
+              resultReason: result.reason,
+              dryRun: effectiveDryRun,
+              ...parsedSignalDetail(details)
+            }
+          })
+        },
+        onError: (step, error, details) =>
+          insertRunLog(db, {
+            runId,
+            script: `${script}:job`,
+            outcome: 'failed',
+            triggerType,
+            runMode: mode,
+            entityType: 'job',
+            entityId: step.card.id,
+            jobTitle: details?.title ?? step.card.title,
+            company: details?.company ?? step.card.company,
+            location: step.card.location,
+            detail: {
+              message: error instanceof Error ? error.message : error,
+              ...(details ? parsedSignalDetail(details) : {})
+            }
+          })
+      })
+
+      insertRunLog(db, {
+        runId,
+        script,
+        outcome: 'success',
+        triggerType,
+        runMode: mode,
+        duration: Date.now() - startedAt,
+        detail: { params, dryRun: effectiveDryRun, summary, savedSearchName }
+      })
+      return summary
+    } finally {
+      // Guarantees cleanup on every exit path - including a thrown
+      // error - not just the two explicit returns above. Without this,
+      // an error partway through a run would leave activeRuns
+      // permanently non-empty and lock out every future run.
+      activeRuns.delete(runId)
+    }
+  })
 }
 
 export function registerLinkedinHandlers(): void {
@@ -450,178 +643,8 @@ export function registerLinkedinHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.linkedinRunSequentialSearch,
-    (
-      _event,
-      { runId, params, dryRun, savedSearchName }: RunSequentialSearchArgs,
-      mode: RunMode = 'live'
-    ) => {
-      // Rejected synchronously, before this call ever reaches withLock's
-      // navigation queue - withLock only serializes navigation, so without
-      // this check a second run would silently queue behind the first and
-      // start on its own once the first's whole body resolved, instead of
-      // being refused. activeRuns is only ever populated by this handler,
-      // so any entry present means a LinkedIn run is already in flight -
-      // "per platform" and "any" coincide today because there's only one
-      // saved search; real queueing across multiple saved searches is
-      // explicitly out of scope until a second one exists (see
-      // SavedSearches.tsx).
-      if (activeRuns.size > 0) {
-        throw new Error('A LinkedIn search run is already in progress')
-      }
-      // Set eagerly (before withLock, not inside it) so this check-then-set
-      // is synchronous from the caller's point of view - Electron dispatches
-      // one IPC message at a time, so two rapid calls can't interleave here.
-      // runId comes from the caller (not generated here) so it's known
-      // before the run starts - the only way a Stop button can target a
-      // run that's still executing.
-      activeRuns.set(runId, { cancelled: false })
-
-      return withLock('linkedin', async () => {
-        try {
-          ensurePlatformViewLoaded('linkedin')
-          const db = getDb()
-          const script = 'linkedin:runSequentialSearch'
-          const startedAt = Date.now()
-
-          const loginStatus = await ensureLoggedIn()
-          if (!loginStatus.loggedIn) {
-            insertRunLog(db, {
-              runId,
-              script,
-              outcome: 'auth_required',
-              triggerType: 'manual',
-              runMode: mode,
-              duration: Date.now() - startedAt,
-              detail: { params }
-            })
-            return {
-              total: 0,
-              applied: 0,
-              dryRunApplied: 0,
-              needsReview: 0,
-              skipped: 0,
-              failed: 0,
-              cancelled: false,
-              pagesScanned: 0,
-              totalPages: null
-            }
-          }
-
-          const effectiveDryRun = mode === 'live' ? dryRun : true
-          const preferences = loadPreferences()
-          const titleFilter = buildTitleFilter(preferences.titleFilter)
-
-          const summary = await runSequentialSearch(params, effectiveDryRun, {
-            isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
-            // Cheap card-level check, before selectJobCard/JD capture ever
-            // happens - see titleFilter.ts. Skips a card whose title doesn't
-            // pass the user's own positive/negative keyword config.
-            filterCard: (card) =>
-              titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
-            // Same gate applyToJob's own handler uses - checked here too since this
-            // walk decides per-job whether to apply at all, applyToJob never sees a
-            // blacklisted or over-preference job. Also where the JD capture gets
-            // persisted - decide() is called exactly once per job, right after capture.
-            decide: (step, details) => {
-              insertJobSnapshot(
-                db,
-                { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
-                details
-              )
-              return decideSkip(db, details, preferences)
-            },
-            onSkipped: (step, reason, details) =>
-              insertRunLog(db, {
-                runId,
-                script: `${script}:job`,
-                outcome: 'skipped',
-                triggerType: 'manual',
-                runMode: mode,
-                entityType: 'job',
-                entityId: step.card.id,
-                jobTitle: details?.title ?? step.card.title,
-                company: details?.company ?? step.card.company,
-                location: step.card.location,
-                detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
-              }),
-            onApplyResult: async (step, result, details) => {
-              const attemptedAt = new Date().toISOString()
-              if (mode !== 'read-only') {
-                insertApplyAttempt(db, {
-                  platform: 'linkedin',
-                  externalJobId: step.card.id,
-                  outcome: result.outcome,
-                  reason: result.reason,
-                  header: result.header,
-                  dryRun: effectiveDryRun,
-                  attemptedAt
-                })
-              }
-              recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
-              // Capture the current search-results URL before any navigation
-              // - captureCompanyInfoIfApplied restores this afterward so the
-              // next selectJobCard() isn't stranded on the company's /about page.
-              const returnUrl = await findPageByUrlPart('linkedin.com')
-                .then((page) => page.url())
-                .catch(() => undefined)
-              await captureCompanyInfoIfApplied(db, mode, result, details, returnUrl)
-              insertRunLog(db, {
-                runId,
-                script: `${script}:job`,
-                outcome: result.outcome === 'error' ? 'failed' : 'success',
-                triggerType: 'manual',
-                runMode: mode,
-                entityType: 'job',
-                entityId: step.card.id,
-                jobTitle: details.title,
-                company: details.company,
-                location: step.card.location,
-                detail: {
-                  resultOutcome: result.outcome,
-                  resultReason: result.reason,
-                  dryRun: effectiveDryRun,
-                  ...parsedSignalDetail(details)
-                }
-              })
-            },
-            onError: (step, error, details) =>
-              insertRunLog(db, {
-                runId,
-                script: `${script}:job`,
-                outcome: 'failed',
-                triggerType: 'manual',
-                runMode: mode,
-                entityType: 'job',
-                entityId: step.card.id,
-                jobTitle: details?.title ?? step.card.title,
-                company: details?.company ?? step.card.company,
-                location: step.card.location,
-                detail: {
-                  message: error instanceof Error ? error.message : error,
-                  ...(details ? parsedSignalDetail(details) : {})
-                }
-              })
-          })
-
-          insertRunLog(db, {
-            runId,
-            script,
-            outcome: 'success',
-            triggerType: 'manual',
-            runMode: mode,
-            duration: Date.now() - startedAt,
-            detail: { params, dryRun: effectiveDryRun, summary, savedSearchName }
-          })
-          return summary
-        } finally {
-          // Guarantees cleanup on every exit path - including a thrown
-          // error - not just the two explicit returns above. Without this,
-          // an error partway through a run would leave activeRuns
-          // permanently non-empty and lock out every future run.
-          activeRuns.delete(runId)
-        }
-      })
-    }
+    (_event, args: RunSequentialSearchArgs, mode: RunMode = 'live') =>
+      runSavedSearchNow(args, mode, 'manual')
   )
 
   ipcMain.handle(IpcChannels.linkedinCancelRun, (_event, runId: string) => {
