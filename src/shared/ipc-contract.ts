@@ -72,6 +72,12 @@ export interface RunSequentialSearchArgs {
    *  for trying out a query variant without a full unbounded run. Absent =
    *  runSequentialSearch's own default ceiling (MAX_PAGES). */
   maxPages?: number
+  /** Caps how many real applications (applied + dryRunApplied combined) this
+   *  run submits before stopping itself early, same as a user hitting Stop -
+   *  a per-run safety bound distinct from maxPages, since a search can run
+   *  out of pages long before it runs out of jobs worth applying to. Absent
+   *  = no cap from this field. */
+  maxApplications?: number
 }
 
 export interface CreateSavedSearchArgs {

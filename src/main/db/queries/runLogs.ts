@@ -68,6 +68,30 @@ export function getRecentRunLogs(db: DatabaseSync, limit = 50, since?: string): 
   return rows.map(toRunLogRow)
 }
 
+export interface JobLogCacheHit {
+  runId: string | null
+  timestamp: string
+  outcome: RunOutcome
+}
+
+/**
+ * Most recent run_logs row recorded for this job id, across every search
+ * that's ever touched it - lets a run skip re-capturing/re-deciding a job
+ * it (or a different saved search covering overlapping results) already
+ * processed, instead of redoing the same work every time the 9-search
+ * rotation re-surfaces the same posting. `undefined` means genuinely new.
+ */
+export function findLatestJobLog(db: DatabaseSync, entityId: string): JobLogCacheHit | undefined {
+  const row = db
+    .prepare(
+      `SELECT run_id, timestamp, outcome FROM run_logs
+       WHERE entity_type = 'job' AND entity_id = ?
+       ORDER BY id DESC LIMIT 1`
+    )
+    .get(entityId) as unknown as JobLogCacheHit | undefined
+  return row
+}
+
 export function insertRunLog(db: DatabaseSync, entry: RunLogEntry): void {
   db.prepare(
     `INSERT INTO run_logs

@@ -10,7 +10,7 @@ import { withLock } from '../../lock'
 import { ensurePlatformViewLoaded } from '../../window'
 import { findPageByUrlPart, gotoWithRetry } from '../../cdp'
 import { getDb } from '../../db'
-import { insertRunLog } from '../../db/queries/runLogs'
+import { insertRunLog, findLatestJobLog } from '../../db/queries/runLogs'
 import { insertAppliedCount } from '../../db/queries/appliedCounts'
 import { upsertAppliedJob } from '../../db/queries/appliedJobs'
 import { insertApplyAttempt } from '../../db/queries/applyAttempts'
@@ -223,7 +223,7 @@ async function resolveCompanyId(db: DatabaseSync, name: string): Promise<string 
  * in-flight run exactly the way a second manual run already is.
  */
 export function runSavedSearchNow(
-  { runId, params, dryRun, savedSearchName, maxPages }: RunSequentialSearchArgs,
+  { runId, params, dryRun, savedSearchName, maxPages, maxApplications }: RunSequentialSearchArgs,
   mode: RunMode = 'live',
   triggerType: 'manual' | 'scheduled' = 'manual'
 ): Promise<SequentialRunSummary> {
@@ -283,17 +283,34 @@ export function runSavedSearchNow(
       const effectiveDryRun = mode === 'live' ? dryRun : true
       const preferences = loadPreferences()
       const titleFilter = buildTitleFilter(preferences.titleFilter)
+      // Counts real submissions only (applied + dry_run_ok) - skipped/needs_review/
+      // error outcomes never draw down maxApplications, since they never actually
+      // applied to anything. Cancelling via activeRuns (rather than a bespoke
+      // early-return) reuses the exact same clean-stop path the Stop button already
+      // takes - the in-flight job still finishes, remaining cards are left untouched.
+      let applicationsSoFar = 0
 
       const summary = await runSequentialSearch(
         params,
         effectiveDryRun,
         {
           isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
-          // Cheap card-level check, before selectJobCard/JD capture ever
-          // happens - see titleFilter.ts. Skips a card whose title doesn't
-          // pass the user's own positive/negative keyword config.
-          filterCard: (card) =>
-            titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
+          // Cheapest check first, before even the title filter: a job id this
+          // sweep (or an earlier one) already logged a decision for gets
+          // skipped outright instead of re-navigating to it and re-deciding -
+          // the 9-search rotation deliberately has overlapping results (same
+          // city, different keyword), and this is what makes reruns fast
+          // instead of repeating identical work. See findLatestJobLog.
+          filterCard: (card) => {
+            const cached = findLatestJobLog(db, card.id)
+            if (cached) {
+              return `cached: already processed in run ${cached.runId ?? 'unknown'} on ${cached.timestamp} (outcome: ${cached.outcome})`
+            }
+            // Cheap card-level check, before selectJobCard/JD capture ever
+            // happens - see titleFilter.ts. Skips a card whose title doesn't
+            // pass the user's own positive/negative keyword config.
+            return titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`
+          },
           // Same gate applyToJob's own handler uses - checked here too since this
           // walk decides per-job whether to apply at all, applyToJob never sees a
           // blacklisted or over-preference job. Also where the JD capture gets
@@ -359,6 +376,13 @@ export function runSavedSearchNow(
                 ...parsedSignalDetail(details)
               }
             })
+            if (result.outcome === 'applied' || result.outcome === 'dry_run_ok') {
+              applicationsSoFar++
+              if (maxApplications !== undefined && applicationsSoFar >= maxApplications) {
+                const run = activeRuns.get(runId)
+                if (run) run.cancelled = true
+              }
+            }
           },
           onError: (step, error, details) =>
             insertRunLog(db, {

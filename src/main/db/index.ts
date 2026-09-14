@@ -22,6 +22,7 @@ import companiesGccFieldsSql from './migrations/20260912T0900_companies_gcc_fiel
 import unmatchedQuestionsNotifiedAtSql from './migrations/20260912T1000_unmatched_questions_notified_at.sql?raw'
 import pipelineContactsSql from './migrations/20260912T1100_pipeline_contacts.sql?raw'
 import savedSearchDatePostedAndWorkplaceSql from './migrations/20260913T0000_saved_search_date_posted_and_workplace.sql?raw'
+import runLogsEntityIndexSql from './migrations/20260914T0000_run_logs_entity_index.sql?raw'
 
 const migrations: Migration[] = [
   { id: '20260911T1900_init.sql', sql: initMigrationSql },
@@ -53,7 +54,8 @@ const migrations: Migration[] = [
   {
     id: '20260913T0000_saved_search_date_posted_and_workplace.sql',
     sql: savedSearchDatePostedAndWorkplaceSql
-  }
+  },
+  { id: '20260914T0000_run_logs_entity_index.sql', sql: runLogsEntityIndexSql }
 ]
 
 let db: DatabaseSync | undefined
