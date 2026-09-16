@@ -88,8 +88,10 @@ export function findLatestJobLog(db: DatabaseSync, entityId: string): JobLogCach
        WHERE entity_type = 'job' AND entity_id = ?
        ORDER BY id DESC LIMIT 1`
     )
-    .get(entityId) as unknown as JobLogCacheHit | undefined
-  return row
+    .get(entityId) as unknown as
+    { run_id: string | null; timestamp: string; outcome: RunOutcome } | undefined
+  if (!row) return undefined
+  return { runId: row.run_id, timestamp: row.timestamp, outcome: row.outcome }
 }
 
 export function insertRunLog(db: DatabaseSync, entry: RunLogEntry): void {
