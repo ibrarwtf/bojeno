@@ -24,6 +24,13 @@ export interface JobFilterPreferences {
   /** Card-level title relevance gate, checked before ever opening a
    *  posting - see titleFilter.ts. Absent/undefined = every title passes. */
   titleFilter?: TitleFilterConfig
+  /** Skip a posting whose fit-card tier (details.fitTier - see
+   *  jobDetails.ts's parseFitTier) isn't 'top' or 'high' - LinkedIn's own
+   *  "You'd be a top applicant" / "Job match is high" wording, live-verified
+   *  2026-09-13. A posting with no fit card, or a fit card with different
+   *  ('generic') wording, is skipped too. Absent/undefined = fit tier
+   *  doesn't gate anything. */
+  requireFitSignal?: boolean
 }
 
 const PREFERENCES_PATH = join(process.cwd(), '.local', 'preferences.json')

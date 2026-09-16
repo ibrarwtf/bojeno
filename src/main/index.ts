@@ -8,7 +8,7 @@ import { registerNaukriHandlers } from './ipc/handlers/naukri'
 import { registerPlatformHandlers } from './ipc/handlers/platform'
 import { registerTrackerHandlers } from './ipc/handlers/tracker'
 import { registerPipelineHandlers } from './ipc/handlers/pipeline'
-import { startScheduler } from './scheduler/runScheduler'
+// import { startScheduler } from './scheduler/runScheduler' // TEMPORARILY DISABLED, see below
 
 // A second launch (a leftover process from an unclean previous dev session,
 // or the app opened twice by hand) would otherwise run fully independently
@@ -54,7 +54,13 @@ if (!gotSingleInstanceLock) {
     // After createWindow() - ensurePlatformViewLoaded (used by the run
     // pipeline a scheduled tick calls) is a no-op until the platform
     // WebContentsViews it navigates exist. See scheduler/runScheduler.ts.
-    startScheduler()
+    // TEMPORARILY DISABLED (local-only, not to be committed): every app
+    // restart during this manual live-apply campaign resets the in-memory
+    // lastTriggeredAt to null, so the passive scheduler immediately treats
+    // itself as "due" and fires an unbounded dry-run tick that grabs the
+    // activeRuns lock out from under the manually-driven runs. Re-enable
+    // this line once the campaign is done.
+    // startScheduler()
 
     app.on('activate', function () {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()

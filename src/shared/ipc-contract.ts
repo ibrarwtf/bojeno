@@ -68,6 +68,10 @@ export interface RunSequentialSearchArgs {
   /** The saved search's own name, purely for the run-log summary row's
    *  display - an ad-hoc/manual run (none exists yet) simply omits it. */
   savedSearchName?: string
+  /** Caps how many results pages this run walks before stopping on its own -
+   *  for trying out a query variant without a full unbounded run. Absent =
+   *  runSequentialSearch's own default ceiling (MAX_PAGES). */
+  maxPages?: number
 }
 
 export interface CreateSavedSearchArgs {

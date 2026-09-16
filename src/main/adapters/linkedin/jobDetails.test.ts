@@ -7,6 +7,7 @@ import {
   parsePostedRelative,
   parseClickedApplyCount,
   hasFitSignal,
+  parseFitTier,
   extractBetween,
   nextHeadingAfter,
   extractEmails,
@@ -149,6 +150,47 @@ describe('hasFitSignal', () => {
 
   it('returns false when the cluster is absent', () => {
     expect(hasFitSignal('no premium card on this posting')).toBe(false)
+  })
+})
+
+describe('parseFitTier', () => {
+  // Both headline variants below are live-verified against real postings
+  // (2026-09-13) - see jobDetails.ts's parseFitTier docstring.
+  const CLUSTER = 'Tailor my resume\nHelp me stand out\nCreate cover letter'
+
+  it("returns 'top' for LinkedIn's top-applicant wording", () => {
+    expect(parseFitTier(`You'd be a top applicant, we can help you stand out\n${CLUSTER}`)).toBe(
+      'top'
+    )
+  })
+
+  it('matches the top-applicant wording with a curly apostrophe too', () => {
+    expect(parseFitTier(`You’d be a top applicant, we can help you stand out\n${CLUSTER}`)).toBe(
+      'top'
+    )
+  })
+
+  it("returns 'high' for LinkedIn's high-match wording", () => {
+    expect(parseFitTier(`Job match is high, we can help you stand out\n${CLUSTER}`)).toBe('high')
+  })
+
+  it("returns 'generic' when the fit card is present with other wording", () => {
+    expect(parseFitTier(FIXTURE)).toBe('generic')
+  })
+
+  it('returns null when the fit card is absent entirely', () => {
+    expect(parseFitTier('no premium card on this posting')).toBeNull()
+  })
+
+  it("returns 'top' for the post-apply 'Take the next step' card variant, which has no Tailor my resume/Help me stand out/Create cover letter cluster", () => {
+    // Confirmed live 2026-09-13 against a real posting: hasFitSignal's
+    // cluster check returned false for this variant (different action
+    // buttons - Practice an interview/Meet the hiring team), which had been
+    // silently downgrading a real top-applicant match to null.
+    const text =
+      "Take the next step in your job search\n\nYou'd be a top applicant, based on your skills, experience, and chances of hearing back\n\nPractice an interview\n\nMeet the hiring team"
+    expect(parseFitTier(text)).toBe('top')
+    expect(hasFitSignal(text)).toBe(false)
   })
 })
 

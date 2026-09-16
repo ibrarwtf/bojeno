@@ -7,6 +7,7 @@
  * this the same way - yearsRequired/applicantCount below are ported from it
  * rather than re-derived.
  */
+import type { FitTier } from '../../../shared/types'
 
 /**
  * LinkedIn sometimes prints the poster's own stated requirement verbatim
@@ -83,6 +84,27 @@ export function hasFitSignal(text: string): boolean {
     text.includes('Help me stand out') &&
     text.includes('Create cover letter')
   )
+}
+
+/**
+ * The fit card's own tier wording - live-verified 2026-09-13 against real
+ * postings, with at least two distinct sub-variants confirmed: the
+ * pre-apply card ("...we can help you stand out" + Tailor my
+ * resume/Help me stand out/Create cover letter) and a post-apply "Take the
+ * next step" card ("...based on your skills, experience, and chances of
+ * hearing back" + Practice an interview/Meet the hiring team) - the second
+ * one confirmed live against a posting hasFitSignal's action-cluster check
+ * wrongly returned false for, which had been silently downgrading a real
+ * top-applicant match to null. Checking the headline wording directly,
+ * before falling back to hasFitSignal's cluster check, means a new action
+ * button set doesn't require a matching code change to not lose the tier.
+ * Apostrophe matched loosely - LinkedIn uses a curly one.
+ */
+export function parseFitTier(text: string): FitTier | null {
+  if (/you.?d be a top applicant/i.test(text)) return 'top'
+  if (/job match is high/i.test(text)) return 'high'
+  if (hasFitSignal(text)) return 'generic'
+  return null
 }
 
 /**

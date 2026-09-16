@@ -223,7 +223,7 @@ async function resolveCompanyId(db: DatabaseSync, name: string): Promise<string 
  * in-flight run exactly the way a second manual run already is.
  */
 export function runSavedSearchNow(
-  { runId, params, dryRun, savedSearchName }: RunSequentialSearchArgs,
+  { runId, params, dryRun, savedSearchName, maxPages }: RunSequentialSearchArgs,
   mode: RunMode = 'live',
   triggerType: 'manual' | 'scheduled' = 'manual'
 ): Promise<SequentialRunSummary> {
@@ -284,97 +284,102 @@ export function runSavedSearchNow(
       const preferences = loadPreferences()
       const titleFilter = buildTitleFilter(preferences.titleFilter)
 
-      const summary = await runSequentialSearch(params, effectiveDryRun, {
-        isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
-        // Cheap card-level check, before selectJobCard/JD capture ever
-        // happens - see titleFilter.ts. Skips a card whose title doesn't
-        // pass the user's own positive/negative keyword config.
-        filterCard: (card) =>
-          titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
-        // Same gate applyToJob's own handler uses - checked here too since this
-        // walk decides per-job whether to apply at all, applyToJob never sees a
-        // blacklisted or over-preference job. Also where the JD capture gets
-        // persisted - decide() is called exactly once per job, right after capture.
-        decide: (step, details) => {
-          insertJobSnapshot(
-            db,
-            { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
-            details
-          )
-          return decideSkip(db, details, preferences)
-        },
-        onSkipped: (step, reason, details) =>
-          insertRunLog(db, {
-            runId,
-            script: `${script}:job`,
-            outcome: 'skipped',
-            triggerType,
-            runMode: mode,
-            entityType: 'job',
-            entityId: step.card.id,
-            jobTitle: details?.title ?? step.card.title,
-            company: details?.company ?? step.card.company,
-            location: step.card.location,
-            detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
-          }),
-        onApplyResult: async (step, result, details) => {
-          const attemptedAt = new Date().toISOString()
-          if (mode !== 'read-only') {
-            insertApplyAttempt(db, {
-              platform: 'linkedin',
-              externalJobId: step.card.id,
-              outcome: result.outcome,
-              reason: result.reason,
-              header: result.header,
-              dryRun: effectiveDryRun,
-              attemptedAt
+      const summary = await runSequentialSearch(
+        params,
+        effectiveDryRun,
+        {
+          isCancelled: () => activeRuns.get(runId)?.cancelled ?? false,
+          // Cheap card-level check, before selectJobCard/JD capture ever
+          // happens - see titleFilter.ts. Skips a card whose title doesn't
+          // pass the user's own positive/negative keyword config.
+          filterCard: (card) =>
+            titleFilter(card.title) ? undefined : `title filter rejected: "${card.title}"`,
+          // Same gate applyToJob's own handler uses - checked here too since this
+          // walk decides per-job whether to apply at all, applyToJob never sees a
+          // blacklisted or over-preference job. Also where the JD capture gets
+          // persisted - decide() is called exactly once per job, right after capture.
+          decide: (step, details) => {
+            insertJobSnapshot(
+              db,
+              { platform: 'linkedin', externalJobId: step.card.id, location: step.card.location },
+              details
+            )
+            return decideSkip(db, details, preferences)
+          },
+          onSkipped: (step, reason, details) =>
+            insertRunLog(db, {
+              runId,
+              script: `${script}:job`,
+              outcome: 'skipped',
+              triggerType,
+              runMode: mode,
+              entityType: 'job',
+              entityId: step.card.id,
+              jobTitle: details?.title ?? step.card.title,
+              company: details?.company ?? step.card.company,
+              location: step.card.location,
+              detail: { reason, ...(details ? parsedSignalDetail(details) : {}) }
+            }),
+          onApplyResult: async (step, result, details) => {
+            const attemptedAt = new Date().toISOString()
+            if (mode !== 'read-only') {
+              insertApplyAttempt(db, {
+                platform: 'linkedin',
+                externalJobId: step.card.id,
+                outcome: result.outcome,
+                reason: result.reason,
+                header: result.header,
+                dryRun: effectiveDryRun,
+                attemptedAt
+              })
+            }
+            recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
+            // Capture the current search-results URL before any navigation
+            // - captureCompanyInfoIfApplied restores this afterward so the
+            // next selectJobCard() isn't stranded on the company's /about page.
+            const returnUrl = await findPageByUrlPart('linkedin.com')
+              .then((page) => page.url())
+              .catch(() => undefined)
+            await captureCompanyInfoIfApplied(db, mode, result, details, returnUrl, triggerType)
+            insertRunLog(db, {
+              runId,
+              script: `${script}:job`,
+              outcome: result.outcome === 'error' ? 'failed' : 'success',
+              triggerType,
+              runMode: mode,
+              entityType: 'job',
+              entityId: step.card.id,
+              jobTitle: details.title,
+              company: details.company,
+              location: step.card.location,
+              detail: {
+                resultOutcome: result.outcome,
+                resultReason: result.reason,
+                dryRun: effectiveDryRun,
+                ...parsedSignalDetail(details)
+              }
             })
-          }
-          recordUnmatchedQuestionIfAny(db, step.card.id, details, result, runId)
-          // Capture the current search-results URL before any navigation
-          // - captureCompanyInfoIfApplied restores this afterward so the
-          // next selectJobCard() isn't stranded on the company's /about page.
-          const returnUrl = await findPageByUrlPart('linkedin.com')
-            .then((page) => page.url())
-            .catch(() => undefined)
-          await captureCompanyInfoIfApplied(db, mode, result, details, returnUrl, triggerType)
-          insertRunLog(db, {
-            runId,
-            script: `${script}:job`,
-            outcome: result.outcome === 'error' ? 'failed' : 'success',
-            triggerType,
-            runMode: mode,
-            entityType: 'job',
-            entityId: step.card.id,
-            jobTitle: details.title,
-            company: details.company,
-            location: step.card.location,
-            detail: {
-              resultOutcome: result.outcome,
-              resultReason: result.reason,
-              dryRun: effectiveDryRun,
-              ...parsedSignalDetail(details)
-            }
-          })
+          },
+          onError: (step, error, details) =>
+            insertRunLog(db, {
+              runId,
+              script: `${script}:job`,
+              outcome: 'failed',
+              triggerType,
+              runMode: mode,
+              entityType: 'job',
+              entityId: step.card.id,
+              jobTitle: details?.title ?? step.card.title,
+              company: details?.company ?? step.card.company,
+              location: step.card.location,
+              detail: {
+                message: error instanceof Error ? error.message : error,
+                ...(details ? parsedSignalDetail(details) : {})
+              }
+            })
         },
-        onError: (step, error, details) =>
-          insertRunLog(db, {
-            runId,
-            script: `${script}:job`,
-            outcome: 'failed',
-            triggerType,
-            runMode: mode,
-            entityType: 'job',
-            entityId: step.card.id,
-            jobTitle: details?.title ?? step.card.title,
-            company: details?.company ?? step.card.company,
-            location: step.card.location,
-            detail: {
-              message: error instanceof Error ? error.message : error,
-              ...(details ? parsedSignalDetail(details) : {})
-            }
-          })
-      })
+        maxPages
+      )
 
       insertRunLog(db, {
         runId,

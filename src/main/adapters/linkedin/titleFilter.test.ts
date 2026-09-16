@@ -9,7 +9,15 @@ describe('compileKeyword', () => {
     expect(match('again and again')).toBe(false)
   })
 
-  it('matches longer keywords as a plain substring', () => {
+  it('anchors a longer single-word keyword on word boundaries too', () => {
+    // Confirmed live 2026-09-13: "intern" as a plain substring wrongly
+    // rejected "Machine Learning Engineer (Consumer Internet)".
+    const match = compileKeyword('intern')
+    expect(match('ai engineer intern')).toBe(true)
+    expect(match('machine learning engineer (consumer internet)')).toBe(false)
+  })
+
+  it('matches a keyword with punctuation as a plain substring', () => {
     const match = compileKeyword('.net')
     expect(match('.net developer')).toBe(true)
     expect(match('dotnet developer')).toBe(false)

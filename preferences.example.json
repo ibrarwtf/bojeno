@@ -1,9 +1,40 @@
 {
-  "maxApplicantCount": 100,
-  "maxApplicantInsightTotal": 200,
-  "maxYearsRequired": 4,
+  "maxApplicantCount": 20,
+  "maxApplicantInsightTotal": 20,
+  "maxYearsRequired": 5,
   "titleFilter": {
-    "positive": ["ai", "ml", "machine learning", "llm", "engineer", "data scientist"],
-    "negative": [".net", "salesforce"]
-  }
+    "positive": [
+      "ai",
+      "artificial intelligence",
+      "ml",
+      "machine learning",
+      "llm",
+      "automation",
+      "agentic",
+      "data",
+      "generative ai",
+      "genai",
+      "nlp",
+      "computer vision",
+      "mlops",
+      "conversational ai",
+      "rpa",
+      "n8n",
+      "workflow automation",
+      "engineer",
+      "developer",
+      "specialist",
+      "analyst",
+      "consultant",
+      "scientist"
+    ],
+    "negative": [
+      "intern",
+      "internship",
+      "executive",
+      "chief",
+      "founder"
+    ]
+  },
+  "requireFitSignal": true
 }

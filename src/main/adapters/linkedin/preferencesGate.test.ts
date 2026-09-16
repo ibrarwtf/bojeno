@@ -12,6 +12,7 @@ function makeDetails(overrides: Partial<JobDetails> = {}): JobDetails {
     clickedApplyCount: null,
     applicantCount: null,
     hasFitSignal: false,
+    fitTier: null,
     yearsRequired: null,
     descriptionText: '',
     applicantInsightsText: null,
