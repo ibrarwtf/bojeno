@@ -20,58 +20,44 @@ Not an "auto-apply to 1000 jobs" spam bot: targeted, relevant applications only,
 ## How it works, in one picture
 
 ```mermaid
-flowchart TB
-    subgraph Renderer["Renderer (React 19 + Tailwind + shadcn), sandboxed, no Node access"]
-        Dashboard["Dashboard.tsx — shell + mode/tab state"]
-        Sidebar["Sidebar — Home / Pipeline / LinkedIn / Naukri"]
-        Home["Home — review queue: unmatched questions,\nfollow-ups due"]
-        SavedSearches["SavedSearches — LinkedIn search matrix CRUD + Run/Stop"]
-        AccountHeader["AccountHeader — login banner, applied count, apply-rate readout"]
-        Pipeline["Pipeline — manual CRM: contacted / interview / outcome"]
-        Tracker["Tracker — applied-count chart + run-log table"]
-        LogPanel["LogPanel — live-tailed run_logs feed"]
-        UrlBar["UrlBar — read-only URL of the active platform tab"]
+flowchart LR
+    subgraph Renderer["🖥️ Renderer — React UI (sandboxed)"]
+        UI["Dashboard · Sidebar · Home\nSavedSearches · Pipeline · Tracker\nLogPanel · AccountHeader"]
     end
 
-    subgraph Preload["Preload (contextBridge)"]
-        API["window.bojeno.* — one typed wrapper\nper IpcContract channel"]
+    subgraph Preload["🔌 Preload"]
+        API["window.bojeno.*\ntyped per IpcContract"]
     end
 
-    subgraph Main["Main process (Node, full OS access)"]
-        IpcHandlers["ipc/handlers/*.ts\nlinkedin · naukri · platform · tracker · pipeline"]
-        Lock["lock.ts — per-platform withLock()\nserializes navigation-driving calls"]
-        Scheduler["scheduler/ — priority-window ticker\n(peak/off-peak, wired but currently\nleft disabled — see index.ts)"]
-        Notifier["notifications/ — native OS notification\non a new review-queue item"]
-        Adapters["adapters/linkedin, adapters/naukri\nplain Adapter-shaped modules:\ncheckLogin, appliedCount, scanJobs,\napplyToJob, runSequentialSearch"]
-        CDP["cdp.ts — connectOverCDP(),\nfindPageByUrlPart, waitForPathname,\ngotoWithRetry"]
-        DB["db/ — node:sqlite (DatabaseSync)\ntimestamped migrations + queries/*.ts"]
-        Window["window.ts — BrowserWindow +\ntwo WebContentsViews, tab layout"]
+    subgraph Main["⚙️ Main process — Node, full OS access"]
+        Handlers["IPC handlers\nlinkedin · naukri · platform\ntracker · pipeline"]
+        Lock["withLock()\nserializes navigation calls"]
+        Scheduler["Scheduler\npriority peak/off-peak windows"]
+        Notifier["Notifier\nnative OS notification"]
+        Adapters["Adapters\nlinkedin/ · naukri/\ncheckLogin, scanJobs, applyToJob..."]
+        CDP["cdp.ts\nconnectOverCDP + Playwright"]
+        DB["db/\nnode:sqlite + migrations"]
     end
 
-    subgraph Views["WebContentsView — real Chromium, real cookies"]
-        LinkedInView["LinkedIn view\npersist:linkedin-&lt;instanceId&gt;"]
-        NaukriView["Naukri view\npersist:naukri-&lt;instanceId&gt;"]
+    subgraph Views["🌐 Real Chromium — WebContentsView"]
+        LinkedInView["LinkedIn tab\nyour real session/cookies"]
+        NaukriView["Naukri tab\nyour real session/cookies"]
     end
 
-    SQLite[("bojeno.sqlite\nsingle file, WAL, backed up\nbefore every migration")]
+    SQLite[("bojeno.sqlite")]
 
-    Dashboard --> API
-    API -->|"ipcRenderer.invoke(channel, ...args)"| IpcHandlers
-    IpcHandlers --> Lock
-    Lock --> Adapters
-    Scheduler -->|"same run-pipeline fn as\nthe manual Run button"| IpcHandlers
-    IpcHandlers --> Notifier
-    Adapters -->|"Playwright Page, via CDP"| CDP
-    CDP -->|"chromium.connectOverCDP(loopback,\nrandom --remote-debugging-port)"| LinkedInView
-    CDP --> NaukriView
-    IpcHandlers --> DB
-    DB --> SQLite
-    Window --> LinkedInView
-    Window --> NaukriView
-    IpcHandlers -.->|"one-way push:\nplatform:activeTabUrlChanged"| Dashboard
+    UI <-->|invoke / push| API
+    API <--> Handlers
+    Handlers --> Lock --> Adapters
+    Scheduler -.->|same pipeline as\nthe manual Run button| Handlers
+    Handlers --> Notifier
+    Handlers <--> DB <--> SQLite
+    Adapters --> CDP
+    CDP -->|attaches over CDP| LinkedInView
+    CDP -->|attaches over CDP| NaukriView
 ```
 
-The two right-hand `WebContentsView`s are the **real browser** — your real LinkedIn/Naukri session, cookies and all, visible in the app's own window at all times. Nothing runs in a hidden headless browser: Playwright attaches to the *same* view you're looking at over Chrome DevTools Protocol, so a scan or an apply-run is just the app moving the mouse/keyboard the way you would, on the tab you can already see.
+The two `WebContentsView`s on the right are the **real browser** — your real LinkedIn/Naukri session, cookies and all, visible in the app's own window at all times. Nothing runs in a hidden headless browser: Playwright attaches to the *same* view you're looking at over Chrome DevTools Protocol, so a scan or an apply-run is just the app moving the mouse/keyboard the way you would, on the tab you can already see.
 
 ## Why Electron + CDP + Playwright
 
